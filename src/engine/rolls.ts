@@ -64,7 +64,7 @@ export function requestRoll(state: GameState, req: RollRequest, rng: Rng): RollR
   let bonus = 0;
   const notes: string[] = [];
 
-  let dc: number | null = null;
+  let dc: number | null;
   let targetId: string | null = null;
   let targetName: string | null = null;
   let stat: Stat = req.stat ?? (req.kind === 'attack' ? m.attackStat : 'WIS');
@@ -268,7 +268,7 @@ function npcRoll(state: GameState, entry: RosterEntry, req: RollRequest, rng: Rn
   const consequences: string[] = [];
   let check: CheckResult;
   let damage: DamageResult | null = null;
-  let targetName: string | null = null;
+  let targetName: string | null;
   const stat: Stat = req.stat ?? 'STR';
 
   if (req.kind === 'attack') {
