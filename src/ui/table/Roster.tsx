@@ -9,6 +9,7 @@ import { Modal } from '../Modal';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
 import { useStoredImage } from '../useStoredImage';
+import { useVoiceUi } from '../voice/useVoice';
 import { Avatar } from './Avatar';
 import styles from './Roster.module.css';
 
@@ -119,6 +120,7 @@ function PartyBack({ m, campaign, actIndex }: { m: PartyMember; campaign: Engine
 }
 
 function NpcBack({ e }: { e: RosterEntry }) {
+  const voice = useVoiceUi();
   return (
     <div className={styles.back}>
       <header className={styles.backHead}>
@@ -155,6 +157,19 @@ function NpcBack({ e }: { e: RosterEntry }) {
       {e.conditions.length > 0 && <p className={styles.line}>Conditions: {e.conditions.join(', ')}</p>}
       {e.look && <p className={styles.line}>{e.look}</p>}
       {e.history && <p className={styles.lore}>{e.history}</p>}
+      {voice && voice.voices.length > 1 && (
+        <label className={styles.voicePick}>
+          <span>Voice</span>
+          <select value={voice.voiceFor(e.name)} onChange={(event) => voice.setVoice(e.name, event.target.value)}>
+            {voice.voices.map((v) => (
+              <option key={v.id} value={v.id}>
+                {v.name}
+                {v.description ? ` (${v.description})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   );
 }

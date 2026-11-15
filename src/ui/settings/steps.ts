@@ -1,6 +1,7 @@
 import type { ComponentType } from 'react';
 import { KeysSection } from './KeysSection';
 import { ModelsSection } from './ModelsSection';
+import { SpeechSection, VoiceSection } from './VoiceSection';
 
 export interface SettingsStep {
   id: string;
@@ -12,4 +13,6 @@ export interface SettingsStep {
 export const SETTINGS_STEPS: SettingsStep[] = [
   { id: 'keys', title: 'API keys', Component: KeysSection },
   { id: 'models', title: 'Models', Component: ModelsSection },
+  { id: 'voice', title: 'Voice', Component: VoiceSection },
+  { id: 'speech', title: 'Speech input', Component: SpeechSection },
 ];

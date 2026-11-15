@@ -30,6 +30,7 @@ export const sessionSchema = z.object({
     current: z.string().nullable(),
   }),
   recap: z.string().nullable(),
+  voiceCast: z.record(z.string(), z.string()).default({}),
 });
 
 /** Parses a session from storage or a backup file. Throws a readable error when it is not valid. */

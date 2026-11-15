@@ -3,7 +3,7 @@ import { AppShell } from './AppShell';
 import { SettingsPage } from '@/ui/settings/SettingsPage';
 import { SetupWizard } from '@/ui/settings/SetupWizard';
 import { NewGamePage } from '@/ui/newgame/NewGamePage';
-import { GameTablePage } from '@/ui/table/GameTablePage';
+import { PlayPage } from '@/ui/table/PlayPage';
 import { CampaignLibraryPage } from '@/ui/library/CampaignLibraryPage';
 import { HomePage } from './HomePage';
 
@@ -18,7 +18,7 @@ export function App() {
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/play/:sessionId" element={<GameTablePage />} />
+      <Route path="/play/:sessionId" element={<PlayPage />} />
       <Route element={<AppShell />}>
         <Route path="/" element={<HomePage />} />
         <Route path="/library" element={<CampaignLibraryPage />} />

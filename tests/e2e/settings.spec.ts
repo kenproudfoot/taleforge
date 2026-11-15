@@ -48,6 +48,11 @@ test('first-run wizard: keys are tested, models come from the live list, and set
   await expect(dmModel.locator('option')).toHaveCount(3);
   await dmModel.selectOption('claude-opus-5-5');
   await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Narrator voice' })).toBeVisible();
+  await expect(page.getByText('Now using this browser.')).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Speaking to the Dungeon Master' })).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByText('claude-opus-5-5 · Anthropic (Claude)')).toBeVisible();
   await page.getByRole('button', { name: 'Finish setup' }).click();
   await expect(page.getByRole('link', { name: 'Start setup' })).toHaveCount(0);

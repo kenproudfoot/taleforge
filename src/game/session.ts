@@ -44,6 +44,8 @@ export interface Session {
   costUsd: number;
   images: SessionImages;
   recap: string | null;
+  /** Lower-cased NPC name -> voice id chosen by the players in the roster card. */
+  voiceCast: Record<string, string>;
 }
 
 export interface SessionSummary {
@@ -105,6 +107,7 @@ export function createSession(input: {
     costUsd: 0,
     images: { portraits: {}, scenes: {}, party: null, current: null },
     recap: null,
+    voiceCast: {},
   };
 }
 
