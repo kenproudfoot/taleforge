@@ -166,6 +166,9 @@ describe('runDmTurn', () => {
     expect(h.session.history[0]!.content).toHaveLength(1);
     expect(h.session.usage.dm.inputTokens).toBe(100);
     expect(h.session.costUsd).toBeGreaterThan(0);
+    expect(h.session.ledger).toEqual([
+      { at: expect.any(Number), turn: 1, kind: 'dm', provider: 'mock', model: expect.any(String), usage: expect.objectContaining({ inputTokens: 100 }), costUsd: h.session.costUsd },
+    ]);
   });
 
   it('applies tool calls, feeds results back and keeps the state block frozen within the turn', async () => {

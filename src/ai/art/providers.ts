@@ -1,3 +1,4 @@
+import { meter } from '../meter';
 import { providerFetch } from '../providers/http';
 import { ProviderError } from '../providers/types';
 import type { ModelInfo } from '../providers/types';
@@ -11,7 +12,11 @@ export interface ImageRequest {
   /** Images the result should stay consistent with (character portraits). Used where supported. */
   references?: Blob[];
   signal?: AbortSignal;
+  /** What is being painted ("portrait", "scene" …), for the usage panel. */
+  label?: string;
 }
+
+export type ImageQuality = 'low' | 'medium' | 'high';
 
 export interface ImageProvider {
   id: ImageProviderId;
@@ -47,11 +52,32 @@ export async function blobToBase64(blob: Blob): Promise<string> {
 }
 
 /** OpenAI images: text-to-image, or the edits endpoint when reference images are given. */
-export function createOpenAiImages(apiKey: string, model: string): ImageProvider {
+export function createOpenAiImages(apiKey: string, model: string, quality: ImageQuality = 'medium'): ImageProvider {
   const auth = { authorization: `Bearer ${apiKey}` };
   const size = (s: ImageSize) => `${PIXELS[s].width}x${PIXELS[s].height}`;
-  const decode = async (res: Response) => {
-    const data = (await res.json()) as { data?: Array<{ b64_json?: string; url?: string }> };
+  // Only the GPT Image models take low/medium/high; older models keep their own default.
+  const gptImage = /^(gpt-image|chatgpt-image)/.test(model);
+  type Reply = {
+    data?: Array<{ b64_json?: string; url?: string }>;
+    usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { text_tokens?: number; image_tokens?: number } };
+  };
+  const decode = async (res: Response, req: ImageRequest) => {
+    const data = (await res.json()) as Reply;
+    const u = data.usage;
+    meter({
+      kind: 'image',
+      provider: 'openai',
+      model,
+      label: req.label,
+      detail: `${size(req.size)}${gptImage ? ` ${quality}` : ''}`,
+      imageTokens: u
+        ? {
+            textInput: u.input_tokens_details?.text_tokens ?? (u.input_tokens_details ? 0 : (u.input_tokens ?? 0)),
+            imageInput: u.input_tokens_details?.image_tokens ?? 0,
+            output: u.output_tokens ?? 0,
+          }
+        : undefined,
+    });
     const first = data.data?.[0];
     if (first?.b64_json) return base64ToBlob(first.b64_json);
     if (first?.url) return (await providerFetch(first.url, {})).blob();
@@ -74,16 +100,18 @@ export function createOpenAiImages(apiKey: string, model: string): ImageProvider
         form.append('model', model);
         form.append('prompt', req.prompt);
         form.append('size', size(req.size));
+        if (gptImage) form.append('quality', quality);
         req.references.slice(0, 8).forEach((ref, i) => form.append('image[]', ref, `reference-${i}.png`));
-        return decode(await providerFetch('https://api.openai.com/v1/images/edits', { method: 'POST', headers: auth, body: form, signal: req.signal }));
+        return decode(await providerFetch('https://api.openai.com/v1/images/edits', { method: 'POST', headers: auth, body: form, signal: req.signal }), req);
       }
       return decode(
         await providerFetch('https://api.openai.com/v1/images/generations', {
           method: 'POST',
           headers: { ...auth, 'content-type': 'application/json' },
-          body: JSON.stringify({ model, prompt: req.prompt, size: size(req.size), n: 1 }),
+          body: JSON.stringify({ model, prompt: req.prompt, size: size(req.size), n: 1, ...(gptImage ? { quality } : {}) }),
           signal: req.signal,
         }),
+        req,
       );
     },
   };
@@ -115,7 +143,19 @@ export function createGeminiImages(apiKey: string, model: string): ImageProvider
           generationConfig: { responseModalities: ['IMAGE'], imageConfig: { aspectRatio: GEMINI_ASPECT[req.size] } },
         }),
       });
-      const data = (await res.json()) as { candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> } }> };
+      const data = (await res.json()) as {
+        candidates?: Array<{ content?: { parts?: Array<{ inlineData?: { mimeType?: string; data?: string } }> } }>;
+        usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+      };
+      const u = data.usageMetadata;
+      meter({
+        kind: 'image',
+        provider: 'gemini',
+        model,
+        label: req.label,
+        detail: GEMINI_ASPECT[req.size],
+        usage: u ? { inputTokens: u.promptTokenCount ?? 0, outputTokens: u.candidatesTokenCount ?? 0, cacheReadTokens: 0, cacheWriteTokens: 0 } : undefined,
+      });
       const image = data.candidates?.[0]?.content?.parts?.find((p) => p.inlineData?.data)?.inlineData;
       if (!image?.data) throw new ProviderError('server', 'The image service returned no image (it may have declined the prompt).');
       return base64ToBlob(image.data, image.mimeType || 'image/png');
@@ -166,6 +206,7 @@ export function createCustomImages(config: CustomEndpoint): ImageProvider {
       const headers: Record<string, string> = { 'content-type': 'application/json' };
       if (config.authHeader && config.authValue) headers[config.authHeader] = config.authValue;
       const res = await providerFetch(config.url, { method: 'POST', headers, body, signal: req.signal });
+      meter({ kind: 'image', provider: 'custom', model: new URL(config.url, 'http://localhost').host, label: req.label, detail: `${PIXELS[req.size].width}x${PIXELS[req.size].height}` });
       if ((res.headers.get('content-type') ?? '').startsWith('image/')) return res.blob();
       const value = readPath(await res.json(), config.responsePath);
       if (typeof value !== 'string' || !value) throw new ProviderError('server', `No image found at "${config.responsePath}" in the response.`);
@@ -178,6 +219,7 @@ export function createCustomImages(config: CustomEndpoint): ImageProvider {
 export interface ImageSettingsLike {
   provider: 'auto' | 'none' | ImageProviderId;
   model: string;
+  quality?: ImageQuality;
   custom: CustomEndpoint;
 }
 
@@ -190,7 +232,8 @@ export function resolveImageProvider(s: ImageSettingsLike, keys: { openai: strin
   return keys.openai ? 'openai' : keys.gemini ? 'gemini' : null;
 }
 
-export const DEFAULT_IMAGE_MODEL: Record<ImageProviderId, string> = { openai: 'gpt-image-1', gemini: 'gemini-2.5-flash-image', custom: '' };
+/** Editable in Settings; the list there is loaded live. gpt-image-1 was shut down on 2026-10-23. */
+export const DEFAULT_IMAGE_MODEL: Record<ImageProviderId, string> = { openai: 'gpt-image-2', gemini: 'gemini-2.5-flash-image', custom: '' };
 
 let override: ImageProvider | null = null;
 export function setImageOverride(provider: ImageProvider | null): void {
@@ -201,7 +244,7 @@ export function getImageProvider(s: ImageSettingsLike, keys: { openai: string; g
   if (override) return override;
   const id = resolveImageProvider(s, keys);
   const model = s.model || (id ? DEFAULT_IMAGE_MODEL[id] : '');
-  if (id === 'openai') return createOpenAiImages(keys.openai, model);
+  if (id === 'openai') return createOpenAiImages(keys.openai, model, s.quality);
   if (id === 'gemini') return createGeminiImages(keys.gemini, model);
   if (id === 'custom') return createCustomImages(s.custom);
   return null;

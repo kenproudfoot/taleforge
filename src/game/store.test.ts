@@ -3,7 +3,8 @@ import { extractJson } from '@/ai/helper';
 import { createMockProvider, setProviderOverride } from '@/ai/providers';
 import type { MockScript } from '@/ai/providers/mock';
 import { ProviderError } from '@/ai/providers/types';
-import { resetSettingsStore } from '@/app/settingsStore';
+import { meter } from '@/ai/meter';
+import { resetSettingsStore, useSettings } from '@/app/settingsStore';
 import { createSeededRng } from '@/engine/rng';
 import { resetDbForTests } from '@/storage/db';
 import { loadSession } from '@/storage/sessions';
@@ -148,6 +149,33 @@ describe('game store', () => {
     expect(game().session!.state.elapsedMs).toBe(0);
     game().close();
     expect(game().session).toBeNull();
+  });
+
+  it('records every metered call in the ledger, priced with the user overrides', async () => {
+    await useSettings.getState().update((d) => void (d.costs.picture = 0.02));
+    meter({ kind: 'image', provider: 'custom', model: 'before-game' });
+    const { done } = start([{ text: 'Dusk in Brinewick. Brann, what do you do?' }]);
+    await done;
+    meter({ kind: 'image', provider: 'custom', model: 'localhost', label: 'scene' });
+    meter({ kind: 'voice', provider: 'openai', model: 'tts-1', chars: 1000 });
+    meter({ kind: 'helper', provider: 'anthropic', model: 'claude-haiku-5-5', usage: { inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 } });
+    // DM events from the meter are ignored: the DM loop records its own usage.
+    meter({ kind: 'dm', provider: 'anthropic', model: 'claude-sonnet-5-5', usage: { inputTokens: 5, outputTokens: 5, cacheReadTokens: 0, cacheWriteTokens: 0 } });
+    const s = game().session!;
+    expect(s.ledger.map((e) => [e.kind, e.model])).toEqual([
+      ['dm', s.dm.model],
+      ['image', 'localhost'],
+      ['voice', 'tts-1'],
+      ['helper', 'claude-haiku-5-5'],
+    ]);
+    expect(s.ledger[0]!.usage!.inputTokens).toBe(100);
+    expect(s.ledger[1]).toMatchObject({ costUsd: 0.02, label: 'scene', turn: s.state.turn });
+    expect(s.usage.helper.inputTokens).toBe(1_000_000);
+    expect(s.costUsd).toBeCloseTo(0.02 + 0.015 + 0.1);
+    await game().save();
+    expect((await loadSession(s.id))!.ledger).toHaveLength(4);
+    game().close();
+    meter({ kind: 'image', provider: 'custom', model: 'after-game' });
   });
 
   it('reports a missing save when opening', async () => {

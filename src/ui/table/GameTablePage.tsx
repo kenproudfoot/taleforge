@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { estimateCost, formatCost, formatTokens, priceFor } from '@/ai/pricing';
+import { UsagePanel } from './UsagePanel';
 import { useSettings } from '@/app/settingsStore';
 import { useDiceTray } from '@/dice/DiceTray';
 import { milestoneBoostAvailable } from '@/engine/state';
@@ -52,6 +53,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
   const { session, pack, campaign } = game;
   const [tab, setTab] = useState<SideTab>('scene');
   const [modelOpen, setModelOpen] = useState(false);
+  const [usageOpen, setUsageOpen] = useState(false);
   const [boostOpen, setBoostOpen] = useState(false);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const [saving, setSaving] = useState<'idle' | 'writing' | 'done'>('idle');
@@ -136,10 +138,10 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
               <option value="per_player">Per player</option>
             </select>
           </label>
-          <span className={styles.meter} title="Tokens used by the Dungeon Master this session, with an estimated cost">
+          <button type="button" className={cx(styles.meter, styles.meterButton)} onClick={() => setUsageOpen(true)} title="Usage and estimated costs for this game">
             {formatTokens(tokens)} tokens{cost !== null ? ` · ${formatCost(cost)}` : ''}
             {session.images.generated ? ` · ${session.images.generated} pictures` : ''}
-          </span>
+          </button>
           <button type="button" className={cx(controls.btn, controls.small)} onClick={() => game.setPaused(true)}>
             <Icon name="pause" size={14} /> Pause
           </button>
@@ -251,12 +253,17 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
             <button type="button" className={controls.btn} onClick={() => void saveAndQuit()}>
               <Icon name="save" /> Save and quit
             </button>
+            <button type="button" className={controls.btn} onClick={() => setUsageOpen(true)}>
+              <Icon name="sparkle" /> Usage and costs
+            </button>
             <Link to="/settings" className={controls.btn} onClick={() => void game.save()}>
               <Icon name="settings" /> Settings
             </Link>
           </div>
         </Modal>
       )}
+
+      {usageOpen && <UsagePanel session={session} targetMinutes={campaign.targetMinutes} onClose={() => setUsageOpen(false)} />}
 
       {boostOpen && boostMembers.length > 0 && (
         <Modal title="Milestone boost" onClose={() => setBoostOpen(false)}>

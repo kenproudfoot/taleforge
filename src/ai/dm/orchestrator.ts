@@ -103,10 +103,12 @@ export async function runDmTurn(deps: DmDeps, input: TurnInput): Promise<TurnRes
         } else if (event.type === 'tool_call') toolCalls.push(event);
         else if (event.type === 'usage') {
           const usage = event.usage;
+          const costUsd = estimateCost(usage, deps.price);
           deps.setSession((s) => ({
             ...s,
             usage: { ...s.usage, dm: addUsage(s.usage.dm, usage) },
-            costUsd: s.costUsd + (estimateCost(usage, deps.price) ?? 0),
+            costUsd: s.costUsd + (costUsd ?? 0),
+            ledger: [...s.ledger, { at: Date.now(), turn: s.state.turn, kind: 'dm', provider: deps.provider.id, model: deps.model, usage, costUsd }],
           }));
         } else {
           stopReason = event.stopReason;
@@ -166,6 +168,7 @@ export async function runDmTurn(deps: DmDeps, input: TurnInput): Promise<TurnRes
       ...before,
       usage: s.usage,
       costUsd: s.costUsd,
+      ledger: s.ledger,
       images: s.images,
       chat: aborted ? before.chat : [...before.chat, { id: newId('error'), kind: 'error', text: message }],
     }));

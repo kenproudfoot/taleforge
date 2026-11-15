@@ -33,7 +33,7 @@ export function useArtDirector(): { painting: boolean; error: string | null; dis
         return s?.id === sessionId ? s : null;
       },
       patch: (change) => useGame.getState().patch(change),
-      writePrompt: (brief) => askHelper({ system: PROMPT_WRITER_SYSTEM, user: brief, maxTokens: 400 }),
+      writePrompt: (brief) => askHelper({ system: PROMPT_WRITER_SYSTEM, user: brief, maxTokens: 400, label: 'picture prompt' }),
       cache: { get: getCachedImage, put: putCachedImage },
       composite: (blob, name, subtitle) => compositePlaque(blob, name, subtitle, { accent: theme.accent, background: theme.background, font: `"${theme.display_font}", Georgia, serif` }),
       concurrency: image.concurrency,
@@ -54,7 +54,7 @@ export function useArtDirector(): { painting: boolean; error: string | null; dis
       setPainting(false);
     };
     // Restart the director when the game, the provider or its key changes.
-  }, [sessionId, image.provider, image.model, image.concurrency, image.custom.url, keys.openai, keys.gemini]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [sessionId, image.provider, image.model, image.quality, image.concurrency, image.custom.url, keys.openai, keys.gemini]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return { painting, error, dismiss: () => setError(null) };
 }

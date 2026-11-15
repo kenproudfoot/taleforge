@@ -1,3 +1,4 @@
+import type { LedgerEntry } from '@/ai/meter';
 import type { ChatMessage, TextProviderId, Usage } from '@/ai/providers/types';
 import { ZERO_USAGE } from '@/ai/providers/types';
 import type { ChipTone, GameState, RollReport } from '@/engine/types';
@@ -45,7 +46,10 @@ export interface Session {
   /** Per-player choice when diceMode is "per_player": party member id -> mode. */
   playerDice: Record<string, 'digital' | 'physical'>;
   usage: { dm: Usage; helper: Usage };
+  /** Estimated USD for everything metered in this game (DM, helper, pictures, voice, listening). */
   costUsd: number;
+  /** Every metered service call, for the usage panel and the CSV export. */
+  ledger: LedgerEntry[];
   images: SessionImages;
   recap: string | null;
   /** Lower-cased NPC name -> voice id chosen by the players in the roster card. */
@@ -61,6 +65,7 @@ export interface SessionSummary {
   party: string[];
   ended: boolean;
   act: number;
+  costUsd: number;
 }
 
 export function summarizeSession(s: Session): SessionSummary {
@@ -73,6 +78,7 @@ export function summarizeSession(s: Session): SessionSummary {
     party: s.state.party.map((p) => p.name),
     ended: s.state.ended !== null,
     act: s.state.actIndex + 1,
+    costUsd: s.costUsd,
   };
 }
 
@@ -109,6 +115,7 @@ export function createSession(input: {
     playerDice: input.playerDice ?? {},
     usage: { dm: ZERO_USAGE, helper: ZERO_USAGE },
     costUsd: 0,
+    ledger: [],
     images: { portraits: {}, scenes: {}, party: null, current: null, cards: {}, generated: 0 },
     recap: null,
     voiceCast: {},

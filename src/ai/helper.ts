@@ -1,22 +1,14 @@
 import { useSettings } from '@/app/settingsStore';
-import { estimateCost, priceFor } from './pricing';
+import { meter } from './meter';
 import { complete, getTextProvider, textMessage } from './providers';
-import type { Completion } from './providers';
 
 export interface HelperRequest {
   system: string;
   user: string;
   maxTokens?: number;
   signal?: AbortSignal;
-}
-
-export type HelperUsageListener = (completion: Completion, costUsd: number) => void;
-const listeners = new Set<HelperUsageListener>();
-
-/** Lets the open game session account for helper-model spend. Returns an unsubscribe function. */
-export function onHelperUsage(listener: HelperUsageListener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+  /** What the request is for, shown in the usage panel ("picture prompt", "recap" …). */
+  label?: string;
 }
 
 /** One-shot request to the cheap helper model (image prompts, recaps, summaries, suggestions). */
@@ -31,8 +23,7 @@ export async function askHelper(req: HelperRequest): Promise<string> {
     effort: 'low',
     signal: req.signal,
   });
-  const cost = estimateCost(completion.usage, priceFor(helper.provider, helper.model)) ?? 0;
-  for (const listener of listeners) listener(completion, cost);
+  meter({ kind: 'helper', provider: helper.provider, model: helper.model, usage: completion.usage, label: req.label });
   return completion.text.trim();
 }
 

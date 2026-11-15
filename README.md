@@ -173,17 +173,24 @@ To run it locally: `npm ci` then `npm run dev` (Node 22). See [CLAUDE.md](CLAUDE
 
 ## Costs
 
-You pay the providers directly, at their API prices. The top bar shows the Dungeon Master's tokens and an
-estimated cost for the session. As a rough guide for a 45-minute game with a mid-size Claude model:
+You pay the providers directly, at their API prices. The top bar shows the tokens used and an estimated cost
+for the game. **Click it** (or open **Pause → Usage and costs**) for the full breakdown: Dungeon Master,
+helper, pictures, narration and speech recognition, tokens per turn, how much of each request was served from
+the cache, a projection for the whole game, and a **CSV usage log** to download. **Home** shows the estimate
+for each saved game and the total. As a rough guide for a 45-minute game with a mid-size Claude model:
 
 - **Dungeon Master and helper:** usually around a dollar. TaleForge caches the large, unchanging part of every
   request (rules, campaign, characters) so repeated turns cost much less, and folds old turns into a summary
   so long games do not get more expensive per turn.
-- **Pictures:** the biggest variable, depending on the image model and quality. A session paints about a
-  dozen to twenty pictures, and each is cached so it is never paid for twice.
+- **Pictures:** the biggest variable. A session paints about a dozen to twenty pictures, and each is cached
+  so it is never paid for twice (replaying a campaign reuses its scenes). **Settings → Pictures → Picture
+  quality** is the main lever: high costs about four times medium, and low is a fraction of medium.
 - **Voice:** spoken narration adds a little per minute of speech; the browser voice is free.
 
-Check each provider's pricing page for current numbers, and set a spending limit in each provider's console.
+The estimates use list prices built into TaleForge (checked November 2026); your provider's bill is the real
+figure. For a service TaleForge has no price for (ElevenLabs credits, a local image server), set one under
+**Settings → Costs**. Check each provider's pricing page for current numbers, and set a spending limit in
+each provider's console.
 
 ## Privacy
 

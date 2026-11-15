@@ -86,6 +86,19 @@ export function ImageSection() {
             )}
           </div>
         )}
+        {active === 'openai' && /^(gpt-image|chatgpt-image)/.test(model) && (
+          <div className={controls.field}>
+            <label className={controls.label} htmlFor="image-quality">
+              Picture quality
+            </label>
+            <select id="image-quality" className={controls.select} value={image.quality} onChange={(e) => set((d) => void (d.quality = e.target.value as typeof d.quality))}>
+              <option value="low">Low (cheapest)</option>
+              <option value="medium">Medium (recommended)</option>
+              <option value="high">High (about four times medium)</option>
+            </select>
+            <span className={controls.hint}>The biggest cost lever for pictures. With gpt-image-2, a square picture is roughly $0.01 low, $0.05 medium, $0.21 high; tall and wide ones a little more.</span>
+          </div>
+        )}
       </div>
 
       {image.provider === 'custom' && (

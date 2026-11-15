@@ -83,6 +83,13 @@ CLI (`npm run validate:campaigns`), in CI and in the in-app importer. Imported p
   changes, ducked by a separate gain stage. A mood resolves to the player's upload, else the campaign's map,
   else the genre default, else the generic default.
 
+- **Usage metering** (`src/ai/meter.ts`, `src/ai/pricing.ts`, `src/game/usage.ts`): every paid call reports what
+  the provider measured (text tokens with cache reads and writes, GPT Image tokens, characters spoken, seconds
+  transcribed) through `meter()`. The game store prices each event (built-in list prices plus the user's
+  overrides in Settings → Costs) and appends it to the session's `ledger`; the DM loop records its own
+  requests so a failed turn keeps exactly what was spent. The usage panel summarizes the ledger and exports
+  it as CSV.
+
 ## State, storage and saves
 
 - Zustand stores: `useSettings` (settings, key encryption, serialized writes) and `useGame` (the open session,

@@ -16,3 +16,6 @@ test-results/
 /*.mp3
 /*.wav
 /*.ogg
+
+# Real-provider test runs (npm run real-run): transcripts and usage logs
+real-runs/

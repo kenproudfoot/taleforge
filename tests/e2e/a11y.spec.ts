@@ -52,6 +52,10 @@ test('every main screen passes an automated WCAG 2.1 AA audit', async ({ page })
   await page.getByRole('button', { name: /Begin the adventure/ }).click();
   await expect(page.getByText('Mags, what do you do?')).toBeVisible();
   await audit(page, 'game table');
+  await page.getByRole('button', { name: /tokens/ }).click();
+  await expect(page.getByRole('dialog', { name: 'Usage and costs' })).toBeVisible();
+  await audit(page, 'usage panel');
+  await page.getByRole('dialog', { name: 'Usage and costs' }).getByRole('button', { name: 'Close' }).click();
   await page.getByLabel('Your action').fill('I pick the lock.');
   await page.getByRole('button', { name: 'Send' }).click();
   await expect(page.getByRole('region', { name: 'Roll request' })).toBeVisible();
@@ -79,6 +83,12 @@ test.describe('phone width', () => {
     await page.getByRole('button', { name: /Begin the adventure/ }).click();
     await expect(page.getByText('Mags, what do you do?')).toBeVisible();
     await noSideScroll('game table');
+    await page.getByRole('button', { name: 'Pause' }).click();
+    await page.getByRole('button', { name: 'Usage and costs' }).click();
+    await expect(page.getByRole('dialog', { name: 'Usage and costs' })).toBeVisible();
+    await noSideScroll('usage panel');
+    await page.getByRole('dialog', { name: 'Usage and costs' }).getByRole('button', { name: 'Close' }).click();
+    await page.getByRole('button', { name: 'Resume' }).click();
     await expect(page.getByRole('tab', { name: 'Roster' })).toBeVisible();
     await page.getByRole('tab', { name: 'State' }).click();
     await expect(page.getByRole('progressbar', { name: 'Goal progress' })).toBeVisible();

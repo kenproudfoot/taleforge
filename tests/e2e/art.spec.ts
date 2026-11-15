@@ -32,6 +32,8 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   await page.getByLabel('URL', { exact: true }).fill('https://images.test/generate');
   await page.getByRole('button', { name: 'Paint a test picture' }).click();
   await expect(page.getByAltText('Test picture')).toBeVisible();
+  // A local or custom service has no list price: the player sets one for the usage panel.
+  await page.getByLabel('Price per picture (USD)').fill('0.01');
 
   await page.goto('./#/new');
   await page.getByRole('button', { name: /The Sunken Crown/ }).click();
@@ -67,4 +69,17 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   const game = prompts.filter((p) => !p.includes('brass lantern'));
   expect(game.every((p) => p.includes('lean rogue'))).toBe(true);
   expect(game.length).toBeGreaterThanOrEqual(6);
+
+  // The usage panel counts every picture at the player's price, and exports the log.
+  await page.getByRole('button', { name: /tokens/ }).click();
+  const panel = page.getByRole('dialog', { name: 'Usage and costs' });
+  const row = panel.getByRole('row', { name: /^Pictures/ });
+  await expect(row).toContainText(`${game.length} pictures`);
+  await expect(row).toContainText(`$${(game.length * 0.01).toFixed(3)}`);
+  await expect(panel.getByRole('row', { name: /^Dungeon Master/ })).toContainText('4 requests');
+  const download = page.waitForEvent('download');
+  await panel.getByRole('button', { name: /Download usage log/ }).click();
+  expect((await download).suggestedFilename()).toMatch(/^taleforge-usage-the-sunken-crown-.*\.csv$/);
+  await panel.getByRole('button', { name: 'Close' }).click();
+  await expect(panel).toBeHidden();
 });

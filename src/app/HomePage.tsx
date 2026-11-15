@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { formatCost } from '@/ai/pricing';
 import { loadCampaign } from '@/content/library';
 import { parseRecap, sessionFromRecap } from '@/game/recap';
 import { formatClock } from '@/game/session';
@@ -110,13 +111,16 @@ export function HomePage() {
       {saves.length > 0 && (
         <section className={styles.saves} aria-labelledby="saves-heading">
           <h2 id="saves-heading">Continue a saved game</h2>
+          {saves.some((s) => s.costUsd > 0) && (
+            <p className={styles.actionText}>Estimated spend across these games: {formatCost(saves.reduce((sum, s) => sum + s.costUsd, 0))}</p>
+          )}
           <ul className={styles.saveList}>
             {saves.map((s) => (
               <li key={s.id} className={styles.save}>
                 <div className={styles.saveText}>
                   <strong>{s.campaignTitle}</strong>
                   <span>
-                    {s.party.join(', ')} · {s.ended ? 'Finished' : `Act ${s.act}`} · {formatClock(s.elapsedMs)} played · {when(s.updatedAt)}
+                    {s.party.join(', ')} · {s.ended ? 'Finished' : `Act ${s.act}`} · {formatClock(s.elapsedMs)} played{s.costUsd > 0 ? ` · ≈${formatCost(s.costUsd)}` : ''} · {when(s.updatedAt)}
                   </span>
                 </div>
                 <Link to={`/play/${s.id}`} className={cx(controls.btn, !s.ended && controls.primary)}>

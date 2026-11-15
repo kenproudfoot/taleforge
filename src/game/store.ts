@@ -3,8 +3,10 @@ import { compactHistory } from '@/ai/dm/context';
 import type { TurnInput } from '@/ai/dm/context';
 import { runDmTurn } from '@/ai/dm/orchestrator';
 import { buildSystemPrompt } from '@/ai/dm/prompt';
-import { askHelper, onHelperUsage } from '@/ai/helper';
-import { priceFor } from '@/ai/pricing';
+import { askHelper } from '@/ai/helper';
+import { onMeter } from '@/ai/meter';
+import type { MeterEvent } from '@/ai/meter';
+import { costOf, priceFor } from '@/ai/pricing';
 import { addUsage, getTextProvider, withJsonTools } from '@/ai/providers';
 import type { TextProviderId } from '@/ai/providers';
 import { useSettings } from '@/app/settingsStore';
@@ -170,7 +172,8 @@ export const useGame = create<GameStore>((set, get) => {
       const result = await compactHistory(session.history, session.summary, { provider, model: helper.model });
       // Only apply if no new turn started while the helper was working.
       if (result && get().session?.id === sessionId && !get().busy && get().session!.history.length === session.history.length) {
-        patch((s) => ({ ...s, history: result.history, summary: result.summary, usage: { ...s.usage, helper: addUsage(s.usage.helper, result.usage) } }));
+        patch((s) => ({ ...s, history: result.history, summary: result.summary }));
+        record({ kind: 'helper', provider: helper.provider, model: helper.model, usage: result.usage, label: 'story summary' });
         await get().save();
       }
     } catch {
@@ -178,10 +181,23 @@ export const useGame = create<GameStore>((set, get) => {
     }
   };
 
+  /** Adds a metered call (helper, pictures, voice, listening) to the open game's ledger. */
+  const record = (event: MeterEvent) => {
+    if (!get().session) return;
+    const costUsd = costOf(event, useSettings.getState().settings.costs);
+    patch((s) => ({
+      ...s,
+      usage: event.kind === 'helper' && event.usage ? { ...s.usage, helper: addUsage(s.usage.helper, event.usage) } : s.usage,
+      costUsd: s.costUsd + (costUsd ?? 0),
+      ledger: [...s.ledger, { ...event, at: Date.now(), turn: s.state.turn, costUsd }],
+    }));
+  };
+
   const attachHelperAccounting = () => {
     unsubscribeHelper?.();
-    unsubscribeHelper = onHelperUsage((completion, cost) => {
-      patch((s) => ({ ...s, usage: { ...s.usage, helper: addUsage(s.usage.helper, completion.usage) }, costUsd: s.costUsd + cost }));
+    unsubscribeHelper = onMeter((event) => {
+      // The DM loop records its own usage so a failed turn can keep exactly what was spent.
+      if (event.kind !== 'dm') record(event);
     });
   };
 
@@ -256,7 +272,7 @@ export const useGame = create<GameStore>((set, get) => {
       const fallback = fallbackProse(session, campaign);
       let prose = fallback;
       try {
-        const reply = await askHelper({ system: RECAP_SYSTEM, user: recapRequest(session, pack, campaign), maxTokens: 1800 });
+        const reply = await askHelper({ system: RECAP_SYSTEM, user: recapRequest(session, pack, campaign), maxTokens: 1800, label: 'recap' });
         prose = parseProse(reply, fallback);
       } catch {
         // No helper available: the recap still has every fact the app tracks, and the exact state.

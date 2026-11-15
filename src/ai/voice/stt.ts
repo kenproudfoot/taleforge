@@ -1,3 +1,4 @@
+import { meter } from '../meter';
 import { providerFetch } from '../providers/http';
 
 export type SttProviderId = 'webspeech' | 'openai';
@@ -101,6 +102,7 @@ export function createOpenAiStt(apiKey: string, model: string): SttProvider {
         if (e.data.size) chunks.push(e.data);
       };
       recorder.start();
+      const startedAt = Date.now();
       const release = () => stream.getTracks().forEach((t) => t.stop());
       return {
         stop: () =>
@@ -112,6 +114,7 @@ export function createOpenAiStt(apiKey: string, model: string): SttProvider {
               const form = new FormData();
               form.append('file', blob, `speech.${(recorder.mimeType || 'audio/webm').includes('mp4') ? 'mp4' : 'webm'}`);
               form.append('model', model);
+              meter({ kind: 'listen', provider: 'openai', model, seconds: (Date.now() - startedAt) / 1000 });
               providerFetch('https://api.openai.com/v1/audio/transcriptions', { method: 'POST', headers: { authorization: `Bearer ${apiKey}` }, body: form })
                 .then((res) => res.json() as Promise<{ text?: string }>)
                 .then((data) => resolve((data.text ?? '').trim()), reject);

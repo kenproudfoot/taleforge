@@ -103,6 +103,18 @@
   color: var(--text-faint);
   white-space: nowrap;
 }
+.meterButton {
+  background: none;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  padding: 4px 6px;
+  cursor: pointer;
+}
+.meterButton:hover,
+.meterButton:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--text);
+}
 .body {
   flex: 1;
   min-height: 0;

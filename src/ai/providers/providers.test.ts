@@ -353,7 +353,7 @@ describe('Anthropic adapter', () => {
 
   it('lists models with known prices', async () => {
     expect(await createAnthropicProvider('k', fakeClient({})).listModels()).toEqual([
-      { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', pricing: { inputPerM: 2, outputPerM: 10 } },
+      { id: 'claude-sonnet-5-5', name: 'Claude Sonnet 5.5', pricing: { inputPerM: 2, outputPerM: 10, cacheReadPerM: 0.1, cacheWritePerM: 2.5 } },
       { id: 'claude-new', name: 'claude-new', pricing: undefined },
     ]);
   });
@@ -449,13 +449,18 @@ describe('registry and helpers', () => {
     expect(parseToolArguments('{"a":')).toEqual({ __invalid_json: '{"a":' });
   });
   it('estimates cost', () => {
-    expect(priceFor('anthropic', 'claude-haiku-5-5')).toEqual({ inputPerM: 0.1, outputPerM: 0.5 });
-    expect(priceFor('anthropic', 'claude-fable-5-2')).toEqual({ inputPerM: 8, outputPerM: 40 });
+    expect(priceFor('anthropic', 'claude-haiku-5-5')).toEqual({ inputPerM: 0.1, outputPerM: 0.5, cacheReadPerM: 0.01, cacheWritePerM: 0.125 });
+    expect(priceFor('anthropic', 'claude-fable-5-2')).toMatchObject({ inputPerM: 8, outputPerM: 40 });
+    expect(priceFor('anthropic', 'claude-fable-5-1')?.cacheReadPerM).toBe(0.25);
+    expect(priceFor('anthropic', 'claude-fable-5')?.cacheReadPerM).toBe(1);
+    expect(priceFor('openai', 'gpt-6.1-sol-2026-09-01')).toMatchObject({ inputPerM: 2, cacheReadPerM: 0.1 });
     expect(priceFor('openai', 'gpt-5')).toBeUndefined();
     const usage = { inputTokens: 1000, outputTokens: 2000, cacheReadTokens: 10000, cacheWriteTokens: 1000 };
     expect(estimateCost(usage, { inputPerM: 2, outputPerM: 10 })).toBeCloseTo((1000 + 1000 + 1250) * 2e-6 + 0.02);
     expect(estimateCost(usage, undefined)).toBeNull();
-    expect([formatCost(null), formatCost(0.004), formatCost(1.239)]).toEqual(['', '<$0.01', '$1.24']);
+    // Explicit cache rates win over the 0.1x / 1.25x fallbacks.
+    expect(estimateCost(usage, { inputPerM: 2, outputPerM: 10, cacheReadPerM: 0.05, cacheWritePerM: 3 })).toBeCloseTo((1000 * 2 + 10000 * 0.05 + 1000 * 3 + 2000 * 10) / 1e6);
+    expect([formatCost(null), formatCost(0), formatCost(0.004), formatCost(1.239)]).toEqual(['', '$0', '<$0.01', '$1.24']);
     expect([formatTokens(950), formatTokens(1500), formatTokens(25_400), formatTokens(2_500_000)]).toEqual(['950', '1.5k', '25k', '2.50M']);
   });
 });

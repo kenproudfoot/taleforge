@@ -147,6 +147,7 @@ export function ChatLog({ session, busy, onRetry, speaking, onOpenImage }: Props
       role="log"
       aria-label="Game chat"
       aria-live="polite"
+      data-busy={busy ? 'true' : 'false'}
       tabIndex={0}
       onScroll={(e) => {
         const el = e.currentTarget;

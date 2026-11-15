@@ -23,6 +23,7 @@ export const sessionSchema = z.object({
   playerDice: z.record(z.string(), z.enum(['digital', 'physical'])),
   usage: z.object({ dm: usage, helper: usage }),
   costUsd: z.number(),
+  ledger: z.array(z.looseObject({ at: z.number(), turn: z.number(), kind: z.enum(['dm', 'helper', 'image', 'voice', 'listen']), provider: z.string(), model: z.string(), costUsd: z.number().nullable() })).default([]),
   images: z.object({
     portraits: z.record(z.string(), z.string()),
     scenes: z.record(z.string(), z.string()),

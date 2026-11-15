@@ -5,6 +5,8 @@ import { createSession } from '@/game/session';
 import type { Session } from '@/game/session';
 import { testAnswers, testWorld } from '@/game/testing';
 import { resetDbForTests } from '@/storage/db';
+import { onMeter } from '../meter';
+import type { MeterEvent } from '../meter';
 import { ProviderError } from '../providers/types';
 import { getCachedImage, hasCachedImage, hashKey, imageKey, putCachedImage } from './cache';
 import { ArtDirector } from './director';
@@ -190,23 +192,34 @@ describe('image providers', () => {
     await expect(createCustomImages({ ...cfg, url: '' }).generate({ prompt: 'x', size: 'square' })).rejects.toThrow(/endpoint URL/);
     await expect(createCustomImages({ ...cfg, bodyTemplate: '{bad' }).generate({ prompt: 'x', size: 'square' })).rejects.toThrow(/not valid JSON/);
   });
-  it('OpenAI: generations without references, edits with them, and image model listing', async () => {
+  it('OpenAI: generations without references, edits with them, quality, metering and model listing', async () => {
+    const usage = { input_tokens: 60, output_tokens: 1568, input_tokens_details: { text_tokens: 50, image_tokens: 10 } };
     const fetchFn = vi.fn(async (u: RequestInfo | URL) =>
-      String(u).endsWith('/models') ? Response.json({ data: [{ id: 'gpt-5' }, { id: 'gpt-image-1' }, { id: 'dall-e-3' }, { id: 'gpt-realtime' }] }) : Response.json({ data: [{ b64_json: png }] }),
+      String(u).endsWith('/models') ? Response.json({ data: [{ id: 'gpt-5' }, { id: 'gpt-image-2' }, { id: 'dall-e-3' }, { id: 'gpt-realtime' }] }) : Response.json({ data: [{ b64_json: png }], usage }),
     );
     vi.stubGlobal('fetch', fetchFn);
-    const openai = createOpenAiImages('sk', 'gpt-image-1');
-    expect((await openai.listModels()).map((m) => m.id)).toEqual(['gpt-image-1', 'dall-e-3']);
-    await openai.generate({ prompt: 'a tower', size: 'landscape' });
+    const events: MeterEvent[] = [];
+    const off = onMeter((e) => events.push(e));
+    const openai = createOpenAiImages('sk', 'gpt-image-2', 'low');
+    expect((await openai.listModels()).map((m) => m.id)).toEqual(['gpt-image-2', 'dall-e-3']);
+    await openai.generate({ prompt: 'a tower', size: 'landscape', label: 'scene' });
     const [url1, init1] = fetchFn.mock.calls[1]! as unknown as [string, RequestInit];
     expect(url1).toBe('https://api.openai.com/v1/images/generations');
-    expect(JSON.parse(init1.body as string)).toEqual({ model: 'gpt-image-1', prompt: 'a tower', size: '1536x1024', n: 1 });
+    expect(JSON.parse(init1.body as string)).toEqual({ model: 'gpt-image-2', prompt: 'a tower', size: '1536x1024', n: 1, quality: 'low' });
+    expect(events[0]).toEqual({ kind: 'image', provider: 'openai', model: 'gpt-image-2', label: 'scene', detail: '1536x1024 low', imageTokens: { textInput: 50, imageInput: 10, output: 1568 } });
     await openai.generate({ prompt: 'the party', size: 'landscape', references: [new Blob(['a']), new Blob(['b'])] });
     const [url2, init2] = fetchFn.mock.calls[2]! as unknown as [string, RequestInit];
     expect(url2).toBe('https://api.openai.com/v1/images/edits');
     const form = init2.body as FormData;
     expect(form.getAll('image[]')).toHaveLength(2);
     expect(form.get('size')).toBe('1536x1024');
+    expect(form.get('quality')).toBe('low');
+    // Older models do not take a quality, and a reply without usage is still counted.
+    fetchFn.mockImplementation(async () => Response.json({ data: [{ b64_json: png }] }));
+    await createOpenAiImages('sk', 'dall-e-3', 'high').generate({ prompt: 'x', size: 'square' });
+    expect(JSON.parse(((fetchFn.mock.calls[3] as unknown as [string, RequestInit])[1]).body as string)).not.toHaveProperty('quality');
+    expect(events[2]).toMatchObject({ kind: 'image', model: 'dall-e-3', detail: '1024x1024', imageTokens: undefined });
+    off();
   });
   it('Gemini: sends references inline and reads the image part', async () => {
     const fetchFn = vi.fn(async () => Response.json({ candidates: [{ content: { parts: [{ text: 'here' }, { inlineData: { mimeType: 'image/png', data: png } }] } }] }));

@@ -1,4 +1,5 @@
 import { playClip } from '@/audio/bus';
+import { meter } from '../meter';
 import { providerFetch } from '../providers/http';
 import { ProviderError } from '../providers/types';
 import type { VoiceInfo } from './casting';
@@ -56,6 +57,7 @@ export function createOpenAiTts(apiKey: string, model: string): TtsProvider {
         body: JSON.stringify({ model, voice, input: text, response_format: 'mp3', speed: options.speed }),
       });
       const audio = await res.arrayBuffer();
+      meter({ kind: 'voice', provider: 'openai', model, chars: text.length });
       return { play: () => playClip(audio, 'voice', { signal: options.signal }) };
     },
   };
@@ -88,6 +90,7 @@ export function createElevenLabsTts(apiKey: string, model: string): TtsProvider 
         body: JSON.stringify({ text, ...(model ? { model_id: model } : {}) }),
       });
       const audio = await res.arrayBuffer();
+      meter({ kind: 'voice', provider: 'elevenlabs', model: model || 'default', chars: text.length });
       // ElevenLabs has no speed parameter on every model, so speed is applied at playback.
       return { play: () => playClip(audio, 'voice', { signal: options.signal, rate: options.speed }) };
     },
@@ -122,6 +125,7 @@ export function createBrowserTts(): TtsProvider {
       const synth = globalThis.speechSynthesis;
       if (!synth) throw new ProviderError('bad_request', 'This browser has no built-in speech.');
       const voices = await browserVoices();
+      meter({ kind: 'voice', provider: 'browser', model: '', chars: text.length });
       return {
         play: () =>
           new Promise<void>((resolve) => {

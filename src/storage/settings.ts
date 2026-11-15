@@ -53,6 +53,8 @@ export const settingsSchema = z.object({
     .object({
       provider: z.enum(['auto', 'none', 'openai', 'gemini', 'custom']).default('auto'),
       model: z.string().default(''),
+      /** GPT Image quality: the biggest lever on picture cost (high is roughly four times medium). */
+      quality: z.enum(['low', 'medium', 'high']).default('medium'),
       concurrency: z.number().int().min(1).max(4).default(2),
       custom: z
         .object({
@@ -73,6 +75,14 @@ export const settingsSchema = z.object({
     })
     .prefault({}),
   dice: z.object({ mode: z.enum(['digital', 'physical', 'per_player']).default('digital') }).prefault({}),
+  costs: z
+    .object({
+      /** USD per picture, replacing the built-in estimate (0 for a local service). */
+      picture: z.number().min(0).nullable().default(null),
+      /** USD per million characters of narration, replacing the built-in estimate. */
+      voicePerMillionChars: z.number().min(0).nullable().default(null),
+    })
+    .prefault({}),
 });
 
 export type Settings = z.infer<typeof settingsSchema>;

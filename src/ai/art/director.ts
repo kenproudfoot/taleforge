@@ -71,7 +71,7 @@ export class ArtDirector {
         const brief = basePrompt(subject, this.deps.pack);
         const prompt = await this.deps.writePrompt(brief).catch(() => brief);
         const refs = (await Promise.all(references.map((k) => this.deps.cache.get(k)))).filter((b): b is Blob => b !== null);
-        const blob = await provider.generate({ prompt: prompt || brief, size, references: refs.length ? refs : undefined, signal });
+        const blob = await provider.generate({ prompt: prompt || brief, size, references: refs.length ? refs : undefined, signal, label: subject.kind });
         await this.deps.cache.put(key, blob, { kind: subject.kind, prompt: prompt || brief, provider: id, model, size });
         this.patchImages((images) => ({ ...images, generated: images.generated + 1 }));
         return key;
