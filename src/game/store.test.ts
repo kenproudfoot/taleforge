@@ -142,7 +142,8 @@ describe('game store', () => {
     const { mock, done } = start([{ text: 'The end.', toolCalls: [{ name: 'end_campaign', input: { outcome: 'victory', epilogue_hint: 'x' } }] }, { text: 'Epilogue.' }]);
     await done;
     await game().send('More?');
-    expect(mock.requests).toHaveLength(2);
+    // Two DM requests; anything else is the final recap written by the helper model.
+    expect(mock.requests.filter((r) => r.tools?.length)).toHaveLength(2);
     game().tick(1000);
     expect(game().session!.state.elapsedMs).toBe(0);
     game().close();
