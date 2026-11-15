@@ -28,10 +28,13 @@ function enqueue(write: () => Promise<void>): Promise<void> {
 }
 
 export const useSettings = create<SettingsState>((set, get) => {
-  const persist = (settings: Settings) => {
-    const { locked, passphrase } = get();
-    return enqueue(() => (locked ? saveSettingsLocked(settings) : saveSettings(settings, passphrase ?? undefined)));
-  };
+  // Each write reads the newest settings and protection state when it runs, so a save queued before the
+  // keys were encrypted can never land afterwards and write them back in the clear.
+  const persist = (_settings?: Settings) =>
+    enqueue(() => {
+      const { settings, locked, passphrase } = get();
+      return locked ? saveSettingsLocked(settings) : saveSettings(settings, passphrase ?? undefined);
+    });
   return {
     settings: defaultSettings(),
     loaded: false,

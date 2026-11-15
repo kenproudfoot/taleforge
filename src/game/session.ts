@@ -20,6 +20,10 @@ export interface SessionImages {
   party: string | null;
   /** The image currently shown in the scene panel (a scene or a moment). */
   current: string | null;
+  /** Party member or roster id -> portrait with the name plaque drawn on (the card art). */
+  cards: Record<string, string>;
+  /** Images painted during this session (for the cost meter). */
+  generated: number;
 }
 
 /** Everything needed to resume a game: saved to IndexedDB after every turn. */
@@ -105,7 +109,7 @@ export function createSession(input: {
     playerDice: input.playerDice ?? {},
     usage: { dm: ZERO_USAGE, helper: ZERO_USAGE },
     costUsd: 0,
-    images: { portraits: {}, scenes: {}, party: null, current: null },
+    images: { portraits: {}, scenes: {}, party: null, current: null, cards: {}, generated: 0 },
     recap: null,
     voiceCast: {},
   };

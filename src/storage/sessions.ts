@@ -28,6 +28,8 @@ export const sessionSchema = z.object({
     scenes: z.record(z.string(), z.string()),
     party: z.string().nullable(),
     current: z.string().nullable(),
+    cards: z.record(z.string(), z.string()).default({}),
+    generated: z.number().default(0),
   }),
   recap: z.string().nullable(),
   voiceCast: z.record(z.string(), z.string()).default({}),

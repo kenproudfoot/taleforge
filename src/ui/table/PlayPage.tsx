@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useSettings } from '@/app/settingsStore';
 import { useGame } from '@/game/store';
+import { useArtDirector } from '../art/useArtDirector';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
@@ -12,6 +13,7 @@ import { GameTablePage } from './GameTablePage';
 /** The game table with its live services attached: narration, microphone, and (later) art and music. */
 export function PlayPage() {
   const narration = useNarration();
+  const art = useArtDirector();
   const [dictated, setDictated] = useState<{ id: number; text: string } | null>(null);
   const mic = useMic({
     onBargeIn: narration.stop,
@@ -26,6 +28,7 @@ export function PlayPage() {
       <GameTablePage
         slots={{
           speaking: narration.speaking,
+          painting: art.painting,
           dictated,
           input: <MicButton mic={mic} />,
           topBar: (
@@ -46,15 +49,19 @@ export function PlayPage() {
               </button>
             </>
           ),
-          overlay: narration.error ? (
-            <div className={voiceStyles.note} role="status">
-              <Icon name="alert" />
-              <span>{narration.error}</span>
-              <button type="button" className={cx(controls.btn, controls.small)} onClick={narration.dismissError}>
-                Dismiss
-              </button>
-            </div>
-          ) : null,
+          overlay: (
+            <>
+              {(narration.error ?? art.error) && (
+                <div className={voiceStyles.note} role="status">
+                  <Icon name="alert" />
+                  <span>{narration.error ?? art.error}</span>
+                  <button type="button" className={cx(controls.btn, controls.small)} onClick={narration.error ? narration.dismissError : art.dismiss}>
+                    Dismiss
+                  </button>
+                </div>
+              )}
+            </>
+          ),
         }}
       />
     </VoiceContext.Provider>

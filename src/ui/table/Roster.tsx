@@ -28,8 +28,17 @@ function HpBar({ hp, max }: { hp: number; max: number }) {
 }
 
 /** Large card art: the portrait when it exists, otherwise a themed emblem card. The name plaque is drawn here, never by the image model. */
-function CardFront({ name, subtitle, imageKey, archetypeId, color, role }: { name: string; subtitle: string; imageKey?: string | null; archetypeId?: string; color?: string; role?: RosterEntry['role'] }) {
+function CardFront({ name, subtitle, imageKey, cardKey, archetypeId, color, role }: { name: string; subtitle: string; imageKey?: string | null; cardKey?: string | null; archetypeId?: string; color?: string; role?: RosterEntry['role'] }) {
   const url = useStoredImage(imageKey);
+  const card = useStoredImage(cardKey);
+  // The composited card already carries its name plaque, painted in by the app.
+  if (card) {
+    return (
+      <div className={styles.front}>
+        <img src={card} alt={`${name}, ${subtitle}`} className={styles.art} />
+      </div>
+    );
+  }
   return (
     <div className={styles.front}>
       {url ? (
@@ -186,7 +195,7 @@ function RosterCard({ session, campaign, selected, onClose }: { session: Session
         <div className={cx(styles.card, flipped && styles.flipped)}>
           <div className={styles.face} aria-hidden={flipped}>
             {member ? (
-              <CardFront name={member.name} subtitle={member.archetypeName} imageKey={session.images.portraits[member.id]} archetypeId={member.archetypeId} color={member.playerColor} />
+              <CardFront name={member.name} subtitle={member.archetypeName} imageKey={session.images.portraits[member.id]} cardKey={session.images.cards?.[member.id]} archetypeId={member.archetypeId} color={member.playerColor} />
             ) : (
               <CardFront name={entry!.name} subtitle={ROLE_LABEL[entry!.role]} imageKey={session.images.portraits[entry!.id]} role={entry!.role} />
             )}

@@ -46,6 +46,18 @@ describe('settings store', () => {
     expect((await loadSettings()).encrypted).toBe(false);
   });
 
+  it('a save queued before encryption never writes the keys in the clear', async () => {
+    const store = () => useSettings.getState();
+    await store().load();
+    await store().update((d) => void (d.keys.openai = 'sk-o-1'));
+    const early = store().update((d) => void (d.voice.speed = 1.2));
+    const protect = store().setPassphrase('pw');
+    await Promise.all([early, protect]);
+    const { kvGet } = await import('@/storage/db');
+    expect(JSON.stringify(await kvGet('settings'))).not.toContain('sk-o-1');
+    expect((await loadSettings()).settings.voice.speed).toBe(1.2);
+  });
+
   it('replace swaps the whole settings object', async () => {
     await useSettings.getState().load();
     const next = structuredClone(useSettings.getState().settings);

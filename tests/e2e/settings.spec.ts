@@ -53,6 +53,8 @@ test('first-run wizard: keys are tested, models come from the live list, and set
   await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByRole('heading', { name: 'Speaking to the Dungeon Master' })).toBeVisible();
   await page.getByRole('button', { name: 'Next' }).click();
+  await expect(page.getByRole('heading', { name: 'Pictures' })).toBeVisible();
+  await page.getByRole('button', { name: 'Next' }).click();
   await expect(page.getByText('claude-opus-5-5 · Anthropic (Claude)')).toBeVisible();
   await page.getByRole('button', { name: 'Finish setup' }).click();
   await expect(page.getByRole('link', { name: 'Start setup' })).toHaveCount(0);

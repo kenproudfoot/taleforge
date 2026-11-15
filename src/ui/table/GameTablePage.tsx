@@ -128,6 +128,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
           </label>
           <span className={styles.meter} title="Tokens used by the Dungeon Master this session, with an estimated cost">
             {formatTokens(tokens)} tokens{cost !== null ? ` · ${formatCost(cost)}` : ''}
+            {session.images.generated ? ` · ${session.images.generated} pictures` : ''}
           </span>
           <button type="button" className={cx(controls.btn, controls.small)} onClick={() => game.setPaused(true)}>
             <Icon name="pause" size={14} /> Pause
