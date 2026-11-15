@@ -1,6 +1,40 @@
 {
   "campaigns": [
     {
+      "id": "ashes-on-45th-street",
+      "title": "Ashes on 45th Street",
+      "genre": "noir-mystery",
+      "era": "1931, a rain-soaked American city where the Depression has everybody for sale",
+      "tagline": "A fire, a missing heiress, and a city that doesn't want answers.",
+      "players": "1-4",
+      "targetMinutes": 45,
+      "contentRating": "PG-13",
+      "theme": {
+        "accent": "#c9a227",
+        "background": "#0d0f12",
+        "display_font": "Limelight",
+        "bubble": "smoke"
+      },
+      "keyArt": null
+    },
+    {
+      "id": "signal-from-kepler-9",
+      "title": "Signal from Kepler-9",
+      "genre": "space-exploration",
+      "era": "2241, the frontier of human space, six years after Halcyon Station went silent",
+      "tagline": "A dead research station is calling for help, in a voice that belongs to no one aboard.",
+      "players": "1-4",
+      "targetMinutes": 45,
+      "contentRating": "PG-13",
+      "theme": {
+        "accent": "#5fd4e8",
+        "background": "#070b14",
+        "display_font": "Orbitron",
+        "bubble": "glass"
+      },
+      "keyArt": null
+    },
+    {
       "id": "the-sunken-crown",
       "title": "The Sunken Crown",
       "genre": "medieval-fantasy",

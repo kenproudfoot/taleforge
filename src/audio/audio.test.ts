@@ -54,9 +54,11 @@ describe('music resolution', () => {
     expect([genreFamily('noir-mystery'), genreFamily('Space Opera'), genreFamily('Sword & Sorcery'), genreFamily('western')]).toEqual(['noir', 'space', 'fantasy', 'generic']);
   });
   it('every bundled campaign maps every mood to a known track', () => {
-    const pack = parseCampaignPack(readPackFiles()).pack!;
     const ids = new Set(catalog.tracks.map((t) => t.id));
-    for (const mood of MOODS) expect(ids.has((pack.manifest.audio[mood] ?? '').replace('bundled:', '')), mood).toBe(true);
+    for (const id of ['the-sunken-crown', 'ashes-on-45th-street', 'signal-from-kepler-9']) {
+      const pack = parseCampaignPack(readPackFiles(id)).pack!;
+      for (const mood of MOODS) expect(ids.has((pack.manifest.audio[mood] ?? '').replace('bundled:', '')), `${id} ${mood}`).toBe(true);
+    }
   });
 });
 
