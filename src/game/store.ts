@@ -3,7 +3,7 @@ import { compactHistory } from '@/ai/dm/context';
 import type { TurnInput } from '@/ai/dm/context';
 import { runDmTurn } from '@/ai/dm/orchestrator';
 import { buildSystemPrompt } from '@/ai/dm/prompt';
-import { onHelperUsage } from '@/ai/helper';
+import { askHelper, onHelperUsage } from '@/ai/helper';
 import { priceFor } from '@/ai/pricing';
 import { addUsage, getTextProvider, withJsonTools } from '@/ai/providers';
 import type { TextProviderId } from '@/ai/providers';
@@ -20,6 +20,7 @@ import { chooseHeroic as engineChooseHeroic, submitDice as engineSubmitDice } fr
 import { applyMilestoneBoost, tick as engineTick } from '@/engine/state';
 import type { Effect, EngineCampaign, RollReport, Stat } from '@/engine/types';
 import { loadSession, saveSession } from '@/storage/sessions';
+import { RECAP_SYSTEM, buildRecap, fallbackProse, parseProse, recapRequest } from './recap';
 import { newId } from './session';
 import type { DiceMode, Session } from './session';
 
@@ -52,6 +53,10 @@ interface GameStore {
   /** Starts a brand-new session: stores it and runs the opening turn. */
   begin(session: Session, loaded: LoadedCampaign, core: CoreContent): Promise<void>;
   send(text: string, characterId?: string): Promise<void>;
+  /** Continues a game restored from a recap: the DM recaps the situation and hands over the spotlight. */
+  resume(): Promise<void>;
+  /** Writes recap.md with the helper model (falling back to what the app knows) and stores it. */
+  writeRecap(): Promise<string>;
   /** Re-runs the last turn after an error. */
   retry(): Promise<void>;
   submitDice(dice: number[]): void;
@@ -151,6 +156,7 @@ export const useGame = create<GameStore>((set, get) => {
       emit({ type: 'turn_finished', ok });
     }
     await get().save();
+    if (ok && get().session?.state.ended && !get().session?.recap) void get().writeRecap().catch(() => undefined);
     if (ok) void compact();
   };
 
@@ -238,6 +244,27 @@ export const useGame = create<GameStore>((set, get) => {
       const id = characterId ?? speaker ?? session.state.party[0]?.id;
       if (!id) return;
       await runTurn({ type: 'players', messages: [{ characterId: id, text: trimmed }] });
+    },
+
+    async resume() {
+      await runTurn({ type: 'resume' });
+    },
+
+    async writeRecap() {
+      const { session, pack, campaign } = get();
+      if (!session || !pack || !campaign) throw new Error('No game is open.');
+      const fallback = fallbackProse(session, campaign);
+      let prose = fallback;
+      try {
+        const reply = await askHelper({ system: RECAP_SYSTEM, user: recapRequest(session, pack, campaign), maxTokens: 1800 });
+        prose = parseProse(reply, fallback);
+      } catch {
+        // No helper available: the recap still has every fact the app tracks, and the exact state.
+      }
+      const recap = buildRecap(get().session ?? session, campaign, prose);
+      patch((s) => ({ ...s, recap }));
+      await get().save();
+      return recap;
     },
 
     async retry() {

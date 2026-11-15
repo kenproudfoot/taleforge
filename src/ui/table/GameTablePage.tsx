@@ -6,6 +6,7 @@ import { useSettings } from '@/app/settingsStore';
 import { useDiceTray } from '@/dice/DiceTray';
 import { milestoneBoostAvailable } from '@/engine/state';
 import { STATS } from '@/engine/types';
+import { recapFileName } from '@/game/recap';
 import { formatClock, usesPhysicalDice } from '@/game/session';
 import type { DiceMode } from '@/game/session';
 import { useGame } from '@/game/store';
@@ -14,6 +15,7 @@ import { Modal } from '../Modal';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
 import { ModelPicker } from '../settings/ModelsSection';
+import { downloadText } from '../download';
 import { themeStyle } from '../theme';
 import { ChatLog } from './ChatLog';
 import styles from './GameTablePage.module.css';
@@ -52,6 +54,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
   const [modelOpen, setModelOpen] = useState(false);
   const [boostOpen, setBoostOpen] = useState(false);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
+  const [saving, setSaving] = useState<'idle' | 'writing' | 'done'>('idle');
   const tray = useDiceTray(slots.onDiceImpact);
 
   useEffect(() => {
@@ -66,6 +69,13 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
   useEffect(() => {
     const timer = setInterval(() => useGame.getState().tick(1000), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  const saveAndQuit = useCallback(async () => {
+    useGame.getState().setPaused(true);
+    setSaving('writing');
+    await useGame.getState().writeRecap().catch(() => undefined);
+    setSaving('done');
   }, []);
 
   const leave = useCallback(async () => {
@@ -139,6 +149,14 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
       <div className={styles.body}>
         <main className={styles.chat}>
           <ChatLog session={session} busy={game.busy} onRetry={() => void game.retry()} speaking={slots.speaking} />
+          {!game.busy && !state.ended && session.history.length === 0 && session.summary.trim() !== '' && (
+            <div className={styles.resume}>
+              <span>This game was restored from a recap. The Dungeon Master will remind everyone where things stand.</span>
+              <button type="button" className={cx(controls.btn, controls.primary)} onClick={() => void game.resume()}>
+                <Icon name="play" /> Continue the story
+              </button>
+            </div>
+          )}
           <RollPrompt
             state={state}
             physical={pending ? usesPhysicalDice(session, pending.rollerId) : false}
@@ -191,14 +209,46 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
         </Modal>
       )}
 
-      {game.paused && (
+      {saving !== 'idle' && (
+        <Modal title={saving === 'writing' ? 'Saving your game' : 'Game saved'} onClose={saving === 'done' ? () => setSaving('idle') : undefined}>
+          {saving === 'writing' ? (
+            <p role="status">Writing the recap of your story so far…</p>
+          ) : (
+            <>
+              <p>
+                Your game is saved in this browser. The recap is a single file that can bring this exact game back on any computer: on the home page, choose <strong>Load a recap file</strong>.
+              </p>
+              <div className={controls.row}>
+                <button type="button" className={cx(controls.btn, controls.primary)} onClick={() => session.recap && downloadText(recapFileName(session), session.recap, 'text/markdown')} disabled={!session.recap}>
+                  <Icon name="download" /> Download recap.md
+                </button>
+                <button type="button" className={controls.btn} onClick={() => void leave()}>
+                  <Icon name="home" /> Home
+                </button>
+                <button
+                  type="button"
+                  className={controls.btn}
+                  onClick={() => {
+                    setSaving('idle');
+                    game.setPaused(false);
+                  }}
+                >
+                  <Icon name="play" /> Keep playing
+                </button>
+              </div>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {game.paused && saving === 'idle' && (
         <Modal title="Game paused" onClose={() => game.setPaused(false)}>
           <p>The clock is stopped. Your game is saved automatically after every turn.</p>
           <div className={controls.row}>
             <button type="button" className={cx(controls.btn, controls.primary)} onClick={() => game.setPaused(false)}>
               <Icon name="play" /> Resume
             </button>
-            <button type="button" className={controls.btn} onClick={() => void leave()}>
+            <button type="button" className={controls.btn} onClick={() => void saveAndQuit()}>
               <Icon name="save" /> Save and quit
             </button>
             <Link to="/settings" className={controls.btn} onClick={() => void game.save()}>
@@ -255,6 +305,9 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
           <div className={controls.row}>
             <button type="button" className={cx(controls.btn, controls.primary)} onClick={() => void leave()}>
               <Icon name="home" /> Home
+            </button>
+            <button type="button" className={controls.btn} disabled={!session.recap} onClick={() => session.recap && downloadText(recapFileName(session), session.recap, 'text/markdown')}>
+              <Icon name="download" /> {session.recap ? 'Download recap' : 'Writing recap…'}
             </button>
             <button type="button" className={controls.btn} onClick={() => setSummaryDismissed(true)}>
               Read the story again

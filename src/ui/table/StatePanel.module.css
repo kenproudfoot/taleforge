@@ -87,6 +87,7 @@
   gap: 3px;
 }
 .beats i {
+  display: inline-block;
   width: 9px;
   height: 9px;
   border-radius: 2px;
@@ -159,6 +160,7 @@
   gap: 4px;
 }
 .pips i {
+  display: inline-block;
   width: 13px;
   height: 13px;
   border-radius: 50%;

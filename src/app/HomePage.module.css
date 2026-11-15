@@ -126,3 +126,6 @@
   color: var(--text-dim);
   font-size: 13.5px;
 }
+.restoreError {
+  color: var(--bad);
+}
