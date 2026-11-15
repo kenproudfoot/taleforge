@@ -1,0 +1,35 @@
+{
+  "tracks": [
+    { "id": "owner-soft-brushed-pulse", "file": "music/owner-soft-brushed-pulse.m4a", "title": "Soft Brushed Pulse", "moods": ["title", "calm"], "genre": "any", "gain": 1, "source": "owner" },
+    { "id": "owner-vast-unfamiliar-world", "file": "music/owner-vast-unfamiliar-world.m4a", "title": "Vast Unfamiliar World", "moods": ["exploration"], "genre": "any", "gain": 1, "source": "owner" },
+    { "id": "owner-shadowed-corner", "file": "music/owner-shadowed-corner.m4a", "title": "Shadowed Corner", "moods": ["mystery"], "genre": "any", "gain": 1, "source": "owner" },
+    { "id": "owner-modal-pulse", "file": "music/owner-modal-pulse.m4a", "title": "Modal Pulse", "moods": ["tension"], "genre": "any", "gain": 0.93, "source": "owner" },
+    { "id": "fantasy-exploration", "file": "music/fantasy-exploration.m4a", "title": "Over the Moor", "moods": ["exploration"], "genre": "fantasy", "gain": 0.54, "source": "generated" },
+    { "id": "fantasy-tension", "file": "music/fantasy-tension.m4a", "title": "Fog on the Water", "moods": ["tension"], "genre": "fantasy", "gain": 0.54, "source": "generated" },
+    { "id": "fantasy-combat", "file": "music/fantasy-combat.m4a", "title": "Steel at the Gate", "moods": ["combat"], "genre": "fantasy", "gain": 0.66, "source": "generated" },
+    { "id": "noir-streets", "file": "music/noir-streets.m4a", "title": "Wet Pavement", "moods": ["exploration"], "genre": "noir", "gain": 0.67, "source": "generated" },
+    { "id": "noir-tension", "file": "music/noir-tension.m4a", "title": "Somebody's Watching", "moods": ["tension", "mystery"], "genre": "noir", "gain": 0.39, "source": "generated" },
+    { "id": "noir-chase", "file": "music/noir-chase.m4a", "title": "Running the Red Light", "moods": ["combat"], "genre": "noir", "gain": 0.76, "source": "generated" },
+    { "id": "scifi-exploration", "file": "music/scifi-exploration.m4a", "title": "Drift", "moods": ["exploration", "calm"], "genre": "space", "gain": 0.42, "source": "generated" },
+    { "id": "scifi-tension", "file": "music/scifi-tension.m4a", "title": "Signal Lost", "moods": ["tension", "mystery"], "genre": "space", "gain": 0.4, "source": "generated" },
+    { "id": "scifi-combat", "file": "music/scifi-combat.m4a", "title": "Hull Breach", "moods": ["combat"], "genre": "space", "gain": 0.66, "source": "generated" },
+    { "id": "calm-hearth", "file": "music/calm-hearth.m4a", "title": "Hearth", "moods": ["calm"], "genre": "any", "gain": 0.5, "source": "generated" },
+    { "id": "triumph-banners", "file": "music/triumph-banners.m4a", "title": "Banners", "moods": ["triumph"], "genre": "any", "gain": 0.48, "source": "generated" },
+    { "id": "defeat-ashes", "file": "music/defeat-ashes.m4a", "title": "Ashes", "moods": ["defeat"], "genre": "any", "gain": 0.46, "source": "generated" }
+  ],
+  "defaults": {
+    "fantasy": { "title": "owner-soft-brushed-pulse", "exploration": "fantasy-exploration", "tension": "fantasy-tension", "combat": "fantasy-combat", "calm": "calm-hearth", "mystery": "owner-shadowed-corner", "triumph": "triumph-banners", "defeat": "defeat-ashes" },
+    "noir": { "title": "owner-soft-brushed-pulse", "exploration": "noir-streets", "tension": "noir-tension", "combat": "noir-chase", "calm": "calm-hearth", "mystery": "owner-shadowed-corner", "triumph": "triumph-banners", "defeat": "defeat-ashes" },
+    "space": { "title": "owner-soft-brushed-pulse", "exploration": "owner-vast-unfamiliar-world", "tension": "scifi-tension", "combat": "scifi-combat", "calm": "scifi-exploration", "mystery": "owner-shadowed-corner", "triumph": "triumph-banners", "defeat": "defeat-ashes" },
+    "generic": { "title": "owner-soft-brushed-pulse", "exploration": "owner-vast-unfamiliar-world", "tension": "owner-modal-pulse", "combat": "fantasy-combat", "calm": "calm-hearth", "mystery": "owner-shadowed-corner", "triumph": "triumph-banners", "defeat": "defeat-ashes" }
+  },
+  "sfx": {
+    "dice": ["sfx/dice-1.m4a", "sfx/dice-2.m4a", "sfx/dice-3.m4a"],
+    "click": "sfx/ui-click.m4a",
+    "success": "sfx/roll-success.m4a",
+    "fail": "sfx/roll-fail.m4a",
+    "crit": "sfx/roll-crit.m4a",
+    "victory": "sfx/stinger-victory.m4a",
+    "defeat": "sfx/stinger-defeat.m4a"
+  }
+}

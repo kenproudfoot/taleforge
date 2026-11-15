@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useSettings } from '@/app/settingsStore';
 import { useGame } from '@/game/store';
 import { useArtDirector } from '../art/useArtDirector';
+import { MusicControl } from '../audio/MusicControl';
+import { useGameMusic } from '../audio/useMusic';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
@@ -14,6 +16,7 @@ import { GameTablePage } from './GameTablePage';
 export function PlayPage() {
   const narration = useNarration();
   const art = useArtDirector();
+  const music = useGameMusic();
   const [dictated, setDictated] = useState<{ id: number; text: string } | null>(null);
   const mic = useMic({
     onBargeIn: narration.stop,
@@ -29,10 +32,12 @@ export function PlayPage() {
         slots={{
           speaking: narration.speaking,
           painting: art.painting,
+          onDiceImpact: music.onDiceImpact,
           dictated,
           input: <MicButton mic={mic} />,
           topBar: (
             <>
+              <MusicControl music={music} />
               {narration.speaking && (
                 <button type="button" className={cx(controls.btn, controls.small)} onClick={narration.skip} title="Skip the line being read">
                   <Icon name="skip" size={14} /> Skip

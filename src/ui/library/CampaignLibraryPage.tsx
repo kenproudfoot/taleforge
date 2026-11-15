@@ -5,6 +5,13 @@ import type { Issue } from '@/content/issues';
 import { deleteImportedCampaign, fetchBundledTrackIds, listCampaigns, loadCampaign, saveImportedCampaign } from '@/content/library';
 import type { LibraryEntry } from '@/content/library';
 import type { CampaignPack } from '@/content/pack';
+import { loadCatalog } from '@/audio/music';
+import { resolveMusic } from '@/audio/tracks';
+import type { Catalog } from '@/audio/tracks';
+import { MOODS } from '@/engine/types';
+import type { Mood } from '@/engine/types';
+import { listUploads, removeUpload, saveUpload } from '@/storage/audioUploads';
+import audioStyles from '../audio/audio.module.css';
 import { CampaignCover } from '../CampaignCover';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
@@ -289,6 +296,7 @@ function CampaignDetails({ id }: { id: string }) {
             {pack.world.locations.length} locations · {pack.cast.length} characters · {m.endings.length} endings
           </dd>
         </div>
+        <MusicList pack={pack} />
         {pack.rules.resources.length > 0 && (
           <div>
             <dt>Special rules</dt>
@@ -296,6 +304,65 @@ function CampaignDetails({ id }: { id: string }) {
           </div>
         )}
       </dl>
+    </div>
+  );
+}
+
+function MusicList({ pack }: { pack: CampaignPack }) {
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [uploads, setUploads] = useState<Partial<Record<Mood, string>>>({});
+  const [error, setError] = useState<string | null>(null);
+  const refresh = useCallback(() => void listUploads(pack.id).then(setUploads, () => setUploads({})), [pack.id]);
+  useEffect(() => {
+    void loadCatalog().then(setCatalog, () => setCatalog(null));
+    refresh();
+  }, [refresh]);
+  if (!catalog) return null;
+  return (
+    <div>
+      <dt>Music</dt>
+      <dd className={audioStyles.moods}>
+        {MOODS.map((mood) => {
+          const source = resolveMusic(mood, { catalog, genre: pack.manifest.genre, audioMap: pack.manifest.audio, uploads, campaignId: pack.id });
+          const name = !source ? 'None' : source.kind === 'bundled' ? source.track.title : source.title;
+          const inputId = `music-${pack.id}-${mood}`;
+          return (
+            <div key={mood} className={audioStyles.moodRow}>
+              <strong>{mood}</strong>
+              <span title={name}>{uploads[mood] ? `Your file: ${name}` : name}</span>
+              <div className={audioStyles.moodActions}>
+                <label htmlFor={inputId} className={cx(controls.btn, controls.small)}>
+                  <Icon name="upload" size={13} /> {uploads[mood] ? 'Replace' : 'Use my own'}
+                </label>
+                <input
+                  id={inputId}
+                  type="file"
+                  accept="audio/*"
+                  className="sr-only"
+                  aria-label={`Upload music for the ${mood} mood`}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    setError(null);
+                    saveUpload(pack.id, mood, file).then(refresh, (err: unknown) => setError(err instanceof Error ? err.message : String(err)));
+                  }}
+                />
+                {uploads[mood] && (
+                  <button type="button" className={cx(controls.btn, controls.small)} onClick={() => void removeUpload(pack.id, mood).then(refresh)} aria-label={`Remove your ${mood} music`}>
+                    <Icon name="x" size={13} /> Remove
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {error && (
+          <p role="alert" className={styles.detailError}>
+            {error}
+          </p>
+        )}
+      </dd>
     </div>
   );
 }

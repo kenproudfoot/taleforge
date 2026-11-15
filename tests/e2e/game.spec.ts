@@ -75,6 +75,8 @@ test('a full scripted campaign from setup to the ending, then reopened from the 
   await expect(page.getByRole('button', { name: /Elder Maren Holt, Ally/ })).toBeVisible();
   await expect(page.getByRole('radio', { name: /Lyra/ })).toBeChecked();
   await expect(page.getByRole('heading', { name: 'The Sunken Crown' })).toBeVisible();
+  // Music follows the scene: Brinewick is calm.
+  await expect(page.getByRole('button', { name: 'Music: Hearth' })).toBeVisible();
 
   // The stat card flips.
   await page.getByRole('button', { name: /Brann, Knight/ }).click();
@@ -91,6 +93,7 @@ test('a full scripted campaign from setup to the ending, then reopened from the 
   await expect(page.getByRole('button', { name: /Elder Maren Holt/ })).toHaveCount(0);
   await expect(page.getByRole('button', { name: /Tide-Wight, Enemy/ })).toBeVisible();
   await expect(page.getByText('The Dead Tide Causeway')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Music: Fog on the Water' })).toBeVisible();
   await prompt.getByRole('button', { name: 'I rolled 15' }).click();
   await expect(prompt).toContainText('Brann hits! Roll a d10 for damage.');
   await prompt.getByRole('button', { name: 'I rolled 8' }).click();

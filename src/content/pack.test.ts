@@ -6,6 +6,12 @@ import { PACK_FILES, parseCampaignPack, skinArchetypes, toEngineCampaign } from 
 import type { PackContext, PackFile, PackFiles } from './pack';
 import { summarizePack } from './summary';
 import { loadTestCore, loadTestPack, readCoreFiles, readPackFiles } from './testing';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const TRACK_IDS = (JSON.parse(readFileSync(join(process.cwd(), 'public/content/audio/tracks.json'), 'utf8')) as { tracks: Array<{ id: string }> }).tracks.map((t) => t.id);
+/** The campaign file with its audio block replaced. */
+const withAudioBlock = (text: string, block: string) => text.replace(/^audio:\n(?:  .*\n)+/m, block);
 
 const GOOD = readPackFiles();
 
@@ -27,7 +33,7 @@ function lineOf(file: PackFile, needle: string, text: string = GOOD[file]): numb
 
 describe('a good pack', () => {
   it('parses with no issues', () => {
-    const { pack, issues } = parseCampaignPack(GOOD, { folder: 'the-sunken-crown', assets: [], bundledTracks: [] });
+    const { pack, issues } = parseCampaignPack(GOOD, { folder: 'the-sunken-crown', assets: [], bundledTracks: TRACK_IDS });
     expect(issues).toEqual([]);
     expect(pack).not.toBeNull();
   });
@@ -198,7 +204,7 @@ describe('precise errors on broken packs', () => {
   });
 
   it('audio and key art references are checked against the pack and the bundled tracks', () => {
-    const withAudio = GOOD['campaign.md'].replace('goal:', 'audio:\n  title: bundled:fantasy-title\n  combat: assets/music/fight.ogg\nkey_art: assets/key-art.jpg\ngoal:');
+    const withAudio = withAudioBlock(GOOD['campaign.md'], 'audio:\n  title: bundled:fantasy-title\n  combat: assets/music/fight.ogg\nkey_art: assets/key-art.jpg\n');
     const files = { ...GOOD, 'campaign.md': withAudio };
     expect(parseCampaignPack(files).issues).toEqual([]);
     const ok = parseCampaignPack(files, { bundledTracks: ['fantasy-title'], assets: ['assets/music/fight.ogg', 'assets/key-art.jpg'] });

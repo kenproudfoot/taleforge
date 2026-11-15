@@ -47,6 +47,8 @@ describe('setup wizard', () => {
     await user.click(screen.getByRole('button', { name: /Next/ }));
     expect(screen.getByRole('heading', { name: 'Pictures' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Next/ }));
+    expect(screen.getByRole('heading', { name: 'Music and sound' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Next/ }));
     expect(screen.getByText(/claude-sonnet-5-5 · Anthropic/)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Finish setup/ }));
     expect(await screen.findByRole('heading', { level: 1 })).toHaveTextContent('The tale begins');

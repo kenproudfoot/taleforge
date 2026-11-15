@@ -16,7 +16,9 @@
     "validate:campaigns": "tsx scripts/validate-campaigns.ts",
     "build:index": "tsx scripts/build-campaign-index.ts",
     "docs:screenshots": "tsx scripts/docs-screenshots.ts",
-    "check": "npm run lint && npm run typecheck && npm run coverage && npm run validate:campaigns"
+    "check": "npm run lint && npm run typecheck && npm run coverage && npm run validate:campaigns",
+    "import:music": "tsx scripts/import-music.ts",
+    "generate:audio": "tsx scripts/generate-audio.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.8.0",

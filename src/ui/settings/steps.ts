@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import { KeysSection } from './KeysSection';
+import { AudioSection } from './AudioSection';
 import { ImageSection } from './ImageSection';
 import { ModelsSection } from './ModelsSection';
 import { SpeechSection, VoiceSection } from './VoiceSection';
@@ -17,4 +18,5 @@ export const SETTINGS_STEPS: SettingsStep[] = [
   { id: 'voice', title: 'Voice', Component: VoiceSection },
   { id: 'speech', title: 'Speech input', Component: SpeechSection },
   { id: 'images', title: 'Pictures', Component: ImageSection },
+  { id: 'audio', title: 'Music', Component: AudioSection },
 ];

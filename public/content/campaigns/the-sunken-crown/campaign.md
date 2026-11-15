@@ -9,6 +9,15 @@ target_minutes: 45
 content_rating: PG-13
 art_style: "painterly 3D fantasy, realistic lighting, cold sea-greens and tarnished gold, mist, wet stone, lantern glow"
 theme: { accent: "#d9b45a", background: "#0c1316", display_font: Cinzel, bubble: parchment }
+audio:
+  title: bundled:owner-soft-brushed-pulse
+  exploration: bundled:fantasy-exploration
+  tension: bundled:fantasy-tension
+  combat: bundled:fantasy-combat
+  calm: bundled:calm-hearth
+  mystery: bundled:owner-shadowed-corner
+  triumph: bundled:triumph-banners
+  defeat: bundled:defeat-ashes
 goal: { text: "Reach the drowned cathedral of Tolmere before the tide returns and end the curse of the Sunken Crown.", milestones: 5 }
 opening_location: brinewick
 acts:

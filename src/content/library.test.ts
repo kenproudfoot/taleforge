@@ -79,7 +79,7 @@ describe('importer', () => {
     const big = checkRawPack({ files: GOOD, assets: { 'assets/big.ogg': huge } });
     expect(big.pack).toBeNull();
     expect(big.issues[0]!.message).toMatch(/limit is 80 MB/);
-    const unknownTrack = checkRawPack({ files: { ...GOOD, 'campaign.md': GOOD['campaign.md'].replace('goal:', 'audio: { title: "bundled:nope" }\ngoal:') }, assets: {} }, ['fantasy-title']);
+    const unknownTrack = checkRawPack({ files: { ...GOOD, 'campaign.md': GOOD['campaign.md'].replace(/^audio:\n(?:  .*\n)+/m, 'audio: { title: "bundled:nope" }\n') }, assets: {} }, ['fantasy-title']);
     expect(unknownTrack.issues[0]!.message).toBe('Unknown bundled track "nope".');
   });
 

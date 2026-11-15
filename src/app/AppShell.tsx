@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { useTitleMusic } from '@/ui/audio/useMusic';
 import { Icon } from '@/ui/Icon';
 import { cx } from '@/ui/cx';
 import styles from './AppShell.module.css';
@@ -8,6 +9,9 @@ import { useSettings } from './settingsStore';
 export function AppShell() {
   const loaded = useSettings((s) => s.loaded);
   const load = useSettings((s) => s.load);
+  const muted = useSettings((s) => s.settings.audio.muted);
+  const update = useSettings((s) => s.update);
+  useTitleMusic();
   useEffect(() => {
     if (!loaded) void load();
   }, [loaded, load]);
@@ -30,6 +34,9 @@ export function AppShell() {
           <NavLink to="/settings" className={link}>
             <Icon name="settings" /> <span className={styles.navText}>Settings</span>
           </NavLink>
+          <button type="button" className={styles.navLink} style={{ background: 'none', border: 0, cursor: 'pointer' }} aria-pressed={muted} aria-label={muted ? 'Unmute music' : 'Mute music'} onClick={() => void update((d) => void (d.audio.muted = !d.audio.muted))}>
+            <Icon name={muted ? 'mute' : 'volume'} />
+          </button>
         </nav>
       </header>
       <main id="main" className={styles.main}>
