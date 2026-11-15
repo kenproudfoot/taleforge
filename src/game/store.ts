@@ -57,7 +57,7 @@ interface GameStore {
   submitDice(dice: number[]): void;
   chooseHeroic(choice: 'accept' | 'reroll' | 'plus5'): void;
   /** A roll outside any DM request, shown in the chat. */
-  freeRoll(notation: string, characterId?: string): void;
+  freeRoll(notation: string, characterId?: string, dice?: number[]): void;
   setSpeaker(id: string): void;
   setDiceMode(mode: DiceMode, playerDice?: Session['playerDice']): void;
   setDmModel(provider: TextProviderId, model: string): void;
@@ -264,12 +264,14 @@ export const useGame = create<GameStore>((set, get) => {
       if (step.report) rollResolver?.(step.report);
     },
 
-    freeRoll(notation, characterId) {
+    freeRoll(notation, characterId, dice) {
       const { session, speaker } = get();
       const parsed = parseDice(notation);
       if (!session || !parsed) return;
       const member = session.state.party.find((p) => p.id === (characterId ?? speaker)) ?? session.state.party[0]!;
-      const roll = rollDice(parsed, rng);
+      // Dice thrown in the 3D tray arrive as values; otherwise roll here.
+      const rolled = dice && dice.length === parsed.count ? dice : null;
+      const roll = rolled ? { rolls: rolled, modifier: parsed.modifier, total: Math.max(0, rolled.reduce((a, b) => a + b, 0) + parsed.modifier) } : rollDice(parsed, rng);
       const report: RollReport = {
         id: newId('free'),
         rollerId: member.id,

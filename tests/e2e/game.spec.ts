@@ -141,11 +141,17 @@ test('digital dice, a failed roll saved with a Heroic Point, and a free roll', a
   await expect(chat).toContainText('A locked door bars the way.');
   await page.getByRole('button', { name: 'Roll dice' }).click();
   await page.getByRole('menuitem', { name: 'd6', exact: true }).click();
-  await expect(chat).toContainText('Free roll: 1d6');
+  await page.getByRole('dialog', { name: 'Dice tray' }).getByRole('button', { name: 'Throw the d6' }).click();
+  await expect(chat).toContainText('Free roll: 1d6', { timeout: 20_000 });
 
   await page.getByLabel('Your action').fill('I pick the lock.');
   await page.getByLabel('Your action').press('Enter');
   await page.getByRole('region', { name: 'Roll request' }).getByRole('button', { name: /Roll d20/ }).click();
+  // The 3D tray opens: throw, watch the die settle, and see the result.
+  const tray = page.getByRole('dialog', { name: 'Dice tray' });
+  await tray.getByRole('button', { name: 'Throw the d20' }).click();
+  await expect(tray.getByText('d20', { exact: true })).toBeVisible({ timeout: 15_000 });
+  await expect(tray).toHaveCount(0, { timeout: 10_000 });
   // DC 25 cannot be reached with +6 unless the die shows 19 or 20, so the Heroic Point prompt appears on most rolls.
   const heroic = page.getByRole('region', { name: 'Heroic Point' });
   const finished = chat.getByText('Somehow, it clicks open.');

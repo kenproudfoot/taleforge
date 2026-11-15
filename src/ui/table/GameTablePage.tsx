@@ -3,8 +3,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { estimateCost, formatCost, formatTokens, priceFor } from '@/ai/pricing';
 import { useSettings } from '@/app/settingsStore';
-import { quickRoll } from '@/dice/roll';
-import type { DiceRoller } from '@/dice/roll';
+import { useDiceTray } from '@/dice/DiceTray';
 import { milestoneBoostAvailable } from '@/engine/state';
 import { STATS } from '@/engine/types';
 import { formatClock, usesPhysicalDice } from '@/game/session';
@@ -33,7 +32,8 @@ export interface TableSlots {
   input?: ReactNode;
   /** Overlays such as the dice tray. */
   overlay?: ReactNode;
-  roller?: DiceRoller;
+  /** Called for each dice impact during a throw, with a 0..1 loudness (for sound). */
+  onDiceImpact?: (loudness: number) => void;
   speaking?: { entryId: string; start: number; end: number } | null;
   dictated?: { id: number; text: string } | null;
   painting?: boolean;
@@ -52,6 +52,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
   const [modelOpen, setModelOpen] = useState(false);
   const [boostOpen, setBoostOpen] = useState(false);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
+  const tray = useDiceTray(slots.onDiceImpact);
 
   useEffect(() => {
     if (!settingsLoaded) void loadSettings();
@@ -142,9 +143,14 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
             physical={pending ? usesPhysicalDice(session, pending.rollerId) : false}
             onDice={game.submitDice}
             onHeroic={game.chooseHeroic}
-            rollDigital={slots.roller ?? quickRoll}
+            rollDigital={tray.roller}
           />
-          <InputBar session={session} speaker={game.speaker} busy={game.busy} onSpeaker={game.setSpeaker} onSend={(text) => void game.send(text)} onFreeRoll={game.freeRoll} dictated={slots.dictated}>
+          <InputBar session={session} speaker={game.speaker} busy={game.busy} onSpeaker={game.setSpeaker} onSend={(text) => void game.send(text)} onFreeRoll={(notation) => {
+              const sides = Number(/d(\d+)/.exec(notation)?.[1]);
+              // Digital players throw free rolls in the tray too; physical players get an instant result.
+              if (sides && game.speaker && !usesPhysicalDice(session, game.speaker)) void tray.roller(sides, 1).then((values) => game.freeRoll(notation, undefined, values));
+              else game.freeRoll(notation);
+            }} dictated={slots.dictated}>
             {slots.input}
           </InputBar>
         </main>
@@ -170,6 +176,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
       </div>
 
       {slots.overlay}
+      {tray.overlay}
 
       {modelOpen && (
         <Modal title="Dungeon Master model" onClose={() => setModelOpen(false)}>

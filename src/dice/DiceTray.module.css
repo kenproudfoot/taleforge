@@ -1,0 +1,72 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: radial-gradient(ellipse at 50% 55%, rgba(6, 8, 12, 0.55), rgba(4, 5, 8, 0.9));
+  backdrop-filter: blur(2px);
+  display: flex;
+  flex-direction: column;
+  animation: appear 0.2s var(--ease);
+}
+@keyframes appear {
+  from {
+    opacity: 0;
+  }
+}
+.canvas {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  display: block;
+  touch-action: none;
+}
+.grab {
+  cursor: grab;
+}
+.grab:active {
+  cursor: grabbing;
+}
+.hud {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 7vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--s-3);
+  pointer-events: none;
+}
+.hud button {
+  pointer-events: auto;
+}
+.hint {
+  color: var(--text-dim);
+  font-size: 15px;
+  text-shadow: 0 1px 4px #000;
+}
+.result {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: var(--font-display);
+  font-size: clamp(54px, 9vw, 96px);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-strong);
+  text-shadow: 0 4px 24px #000, 0 0 40px var(--accent-soft);
+  animation: pop 0.35s var(--ease);
+}
+.result small {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+@keyframes pop {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
