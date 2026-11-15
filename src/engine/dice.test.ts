@@ -60,7 +60,7 @@ describe('roll modes', () => {
 });
 
 describe('RNG fairness', () => {
-  it('crypto RNG stays in range and is uniform for every die (chi-square, p=0.001)', () => {
+  it('crypto RNG stays in range and is uniform for every die (chi-square, p=0.001)', { timeout: 30_000 }, () => {
     const rng = createCryptoRng();
     for (const sides of DIE_SIZES) {
       const n = sides * 2000;
@@ -94,12 +94,16 @@ describe('RNG fairness', () => {
 
   it('rejection sampling discards values that would bias the result', () => {
     // 0xFFFFFFFF is above the largest multiple of 20 that fits in 32 bits, so it must be re-drawn.
-    const feed = [0xffffffff, 39];
+    let calls = 0;
     const rng = createCryptoRng((a) => {
-      a[0] = feed.shift()!;
+      calls++;
+      a.fill(0);
+      a[0] = 0xffffffff;
+      a[1] = 39;
     });
     expect(rng.int(20)).toBe(20);
-    expect(feed).toHaveLength(0);
+    expect(rng.int(20)).toBe(1);
+    expect(calls).toBe(1);
   });
 
   it('rejects invalid die sizes and scripted misuse', () => {

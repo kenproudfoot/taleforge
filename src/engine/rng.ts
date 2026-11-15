@@ -10,14 +10,22 @@ type RandomFill = (array: Uint32Array<ArrayBuffer>) => unknown;
  * (a plain modulo would slightly favour low faces).
  */
 export function createCryptoRng(fill: RandomFill = (a) => globalThis.crypto.getRandomValues(a)): Rng {
-  const buf = new Uint32Array(new ArrayBuffer(4));
+  // Random words are fetched in batches: one getRandomValues call per roll is needlessly slow.
+  const buf = new Uint32Array(new ArrayBuffer(4 * 256));
+  let next = buf.length;
+  const word = () => {
+    if (next >= buf.length) {
+      fill(buf);
+      next = 0;
+    }
+    return buf[next++]!;
+  };
   return {
     int(sides: number): number {
       assertSides(sides);
       const limit = Math.floor(0x1_0000_0000 / sides) * sides;
       for (;;) {
-        fill(buf);
-        const value = buf[0]!;
+        const value = word();
         if (value < limit) return (value % sides) + 1;
       }
     },

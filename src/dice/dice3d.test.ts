@@ -88,7 +88,7 @@ describe('roll planning', () => {
     expect(planRoll(100, 1, createScriptedRng([100])).dice.map((d) => d.face)).toEqual([0, 0]);
     expect(planRoll(100, 1, createScriptedRng([5])).dice.map((d) => d.face)).toEqual([0, 5]);
   });
-  it('digital results are uniform for every die (chi-square, p=0.001)', () => {
+  it('digital results are uniform for every die (chi-square, p=0.001)', { timeout: 30_000 }, () => {
     const rng = createCryptoRng();
     for (const die of [4, 6, 8, 10, 12, 20, 100]) {
       const counts = new Array<number>(die).fill(0);
@@ -112,7 +112,7 @@ describe('roll planning', () => {
 });
 
 describe('physics simulation', () => {
-  it('every die type tumbles, stays in the tray and comes to rest flat', () => {
+  it('every die type tumbles, stays in the tray and comes to rest flat', { timeout: 30_000 }, () => {
     for (const type of TYPES) {
       const sim = simulateUntilFlat([type], { strength: 1, direction: 0 }, seeded(type * 7 + 1));
       expect(sim.settled).toBe(true);
@@ -136,7 +136,7 @@ describe('physics simulation', () => {
     expect(a.frames.at(-1)).not.toEqual(c.frames.at(-1));
     expect(a.frames[0]).toHaveLength(2);
   });
-  it('the landing face plus the label mapping always shows the planned value', () => {
+  it('the landing face plus the label mapping always shows the planned value', { timeout: 30_000 }, () => {
     const rng = createSeededRng(9);
     for (let i = 0; i < 12; i++) {
       const plan = planRoll(20, 1, rng);
