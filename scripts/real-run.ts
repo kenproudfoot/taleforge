@@ -21,6 +21,8 @@ const { values: args } = parseArgs({
     'max-usd': { type: 'string', default: '1.5' },
     quality: { type: 'string', default: 'medium' },
     'no-images': { type: 'boolean', default: false },
+    /** Picture service to use: comfyui (default here), openai, gemini. */
+    images: { type: 'string', default: '' },
     'no-voice': { type: 'boolean', default: false },
     headed: { type: 'boolean', default: false },
     /** Free rehearsal: a scripted Dungeon Master instead of the real one, to check this script works. */
@@ -107,6 +109,7 @@ try {
   await page.goto(`${BASE}#/settings`);
   if (!args.mock) for (const [name, label] of KEYS) if (env[name]) await page.getByLabel(label).fill(env[name]!);
   if (args['no-images'] || args.mock) await page.getByLabel('Image service').selectOption('none');
+  else if (args.images) await page.getByLabel('Image service').selectOption(args.images);
   else if (env.OPENAI_API_KEY) {
     const quality = page.getByLabel('Picture quality');
     if (await quality.isVisible().catch(() => false)) await quality.selectOption(args.quality!);

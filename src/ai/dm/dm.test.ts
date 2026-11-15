@@ -147,6 +147,12 @@ describe('narration', () => {
     state.party[0]!.status = 'downed';
     expect(addressedMember('Lyra, what do you do?', state)).toBeNull();
   });
+  it('recognises a titled character by the name people call them', () => {
+    const state = testSession().state;
+    state.party[1]!.name = 'Sir Rowan Greycrest';
+    expect(addressedMember('The wight lunges. Rowan, what do you do?', state)).toBe(state.party[1]!.id);
+    expect(addressedMember('The wight lunges. Sir Rowan Greycrest, what do you do?', state)).toBe(state.party[1]!.id);
+  });
 });
 
 describe('runDmTurn', () => {

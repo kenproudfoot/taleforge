@@ -93,14 +93,14 @@ export const TOOL_NAMES = Object.keys(TOOL_SCHEMAS) as ToolName[];
 
 export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   request_roll:
-    'Ask for a dice roll. Never invent roll results. For a party member the game pauses until the player rolls; the result comes back as this tool\'s result. Attack hits roll and apply damage automatically.',
+    'Ask for a dice roll. Required before resolving any attack by a party member (kind "attack") and any risky or uncertain action: call it instead of narrating the outcome, then narrate from the result. Never invent roll results. For a party member the game pauses until the player rolls; the result comes back as this tool\'s result. Attack hits roll and apply damage automatically.',
   apply_damage: 'Deal damage that does not come from an attack roll.',
   heal: 'Restore hit points. Also gets a Downed character back up.',
   add_condition: 'Add a short condition (e.g. Poisoned, Frightened, Hidden) to a character.',
   remove_condition: 'Remove a condition from a character.',
   roster_add: 'Bring an NPC or enemy into the scene, from the cast file by id or improvised.',
   roster_remove: 'Remove an NPC or enemy from the scene.',
-  scene_change: 'Move the party to another location. Sets the music mood and scene image.',
+  scene_change: 'Move the party to another location. Call it as soon as the party arrives somewhere other than the current location in the game state, before describing the new place. Sets the music mood and scene image.',
   advance_progress: 'Mark a story beat complete and/or a goal milestone reached.',
   record_clue: 'Record a clue or discovery in the party log.',
   give_item: 'Give the party or a character an item.',

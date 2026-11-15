@@ -1,4 +1,5 @@
 import type { GameState } from '@/engine/types';
+import { shortName } from '@/engine/names';
 
 export type Segment = { type: 'narration'; text: string } | { type: 'speech'; speaker: string; text: string };
 
@@ -48,7 +49,7 @@ export function addressedMember(text: string, state: GameState): string | null {
   let fallback: { id: string; at: number } | null = null;
   for (const m of state.party) {
     if (m.status !== 'ok') continue;
-    const first = escapeRegExp(m.name.split(/\s+/)[0]!);
+    const first = escapeRegExp(shortName(m.name));
     const name = `(?:${escapeRegExp(m.name)}|${first})`;
     const vocative = new RegExp(`(?:^|[.!?…]\\s+)${name}\\s*,|,\\s*${name}\\s*[.!?…]`, 'gi');
     for (const match of tail.matchAll(vocative)) {

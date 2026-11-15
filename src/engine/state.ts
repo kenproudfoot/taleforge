@@ -1,3 +1,4 @@
+import { shortName } from './names';
 import { bumpStat, defenseFor, maxHpFor } from './rules';
 import type {
   Archetype,
@@ -136,6 +137,7 @@ function matchByName<T extends { id: string; name: string }>(list: T[], ref: str
   return (
     list.find((e) => norm(e.id) === r) ??
     list.find((e) => norm(e.name) === r) ??
+    list.find((e) => norm(shortName(e.name)) === r) ??
     list.find((e) => norm(e.name).split(/\s+/)[0] === r) ??
     list.find((e) => norm(e.name).includes(r) || slugify(e.name) === slugify(ref))
   );

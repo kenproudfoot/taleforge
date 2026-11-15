@@ -7,6 +7,7 @@ import controls from '../controls.module.css';
 import { cx } from '../cx';
 import { HpBar } from './Roster';
 import styles from './StatePanel.module.css';
+import { shortName } from '@/engine/names';
 
 const PACING = {
   ahead: { label: 'Ahead of schedule', tone: 'good' },
@@ -17,6 +18,10 @@ const PACING = {
 
 export function StatePanel({ session, campaign, onBoost }: { session: Session; campaign: EngineCampaign; onBoost(): void }) {
   const state = session.state;
+  const holderName = (id: string) => {
+    const member = state.party.find((p) => p.id === id);
+    return member ? shortName(member.name) : 'party';
+  };
   const progress = Math.round(goalProgress(state, campaign) * 100);
   const pacing = PACING[computePacing(state, campaign).status];
   const won = state.encounters.filter((e) => e.outcome === 'won').length;
@@ -131,7 +136,7 @@ export function StatePanel({ session, campaign, onBoost }: { session: Session; c
             {state.items.map((item, i) => (
               <li key={`${item.name}-${i}`} title={item.description}>
                 <Icon name="key" size={13} /> {item.name}
-                <small> ({item.holder === 'party' ? 'party' : (state.party.find((p) => p.id === item.holder)?.name.split(' ')[0] ?? 'party')})</small>
+                <small> ({item.holder === 'party' ? 'party' : holderName(item.holder)})</small>
               </li>
             ))}
           </ul>

@@ -6,6 +6,7 @@ import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
 import styles from './InputBar.module.css';
+import { shortName } from '@/engine/names';
 
 interface Props {
   session: Session;
@@ -56,7 +57,7 @@ export function InputBar({ session, speaker, busy, onSpeaker, onSend, onFreeRoll
             onClick={() => onSpeaker(m.id)}
           >
             <span className={styles.dot} />
-            {m.name.split(' ')[0]}
+            {shortName(m.name)}
             {m.status !== 'ok' && <small>({m.status})</small>}
           </button>
         ))}
@@ -92,7 +93,7 @@ export function InputBar({ session, speaker, busy, onSpeaker, onSend, onFreeRoll
           rows={1}
           value={text}
           disabled={ended}
-          placeholder={ended ? 'The adventure is over.' : waitingForRoll ? 'Waiting for the dice…' : active ? `What does ${active.name.split(' ')[0]} do?` : 'Type your action…'}
+          placeholder={ended ? 'The adventure is over.' : waitingForRoll ? 'Waiting for the dice…' : active ? `What does ${shortName(active.name)} do?` : 'Type your action…'}
           aria-label="Your action"
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {

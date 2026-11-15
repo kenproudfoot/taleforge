@@ -12,6 +12,7 @@ import { useStoredImage } from '../useStoredImage';
 import { useVoiceUi } from '../voice/useVoice';
 import { Avatar } from './Avatar';
 import styles from './Roster.module.css';
+import { shortName } from '@/engine/names';
 
 type Selected = { kind: 'party'; id: string } | { kind: 'npc'; id: string };
 
@@ -224,7 +225,7 @@ export function Roster({ session, campaign }: { session: Session; campaign: Engi
           <li key={m.id}>
             <button type="button" className={styles.thumb} onClick={() => setSelected({ kind: 'party', id: m.id })} aria-label={`${m.name}, ${m.archetypeName}. Open card`}>
               <Avatar name={m.name} archetypeId={m.archetypeId} color={m.playerColor} imageKey={session.images.portraits[m.id]} size={56} dimmed={m.status === 'out'} />
-              <span className={styles.thumbName}>{m.name.split(' ')[0]}</span>
+              <span className={styles.thumbName}>{shortName(m.name)}</span>
               <HpBar hp={m.hp} max={m.maxHp} />
             </button>
           </li>
@@ -236,7 +237,7 @@ export function Roster({ session, campaign }: { session: Session; campaign: Engi
                 <Avatar name={e.name} role={e.role} imageKey={session.images.portraits[e.id]} size={56} dimmed={e.status !== 'active'} />
                 <span className="sr-only">{`${e.name}, ${ROLE_LABEL[e.role]}. Open card`}</span>
                 <span className={styles.thumbName} aria-hidden="true">
-                  {e.name.replace(/^The /, '').split(' ')[0]}
+                  {shortName(e.name)}
                 </span>
                 <span aria-hidden="true">{e.role === 'enemy' || e.role === 'boss' ? <HpBar hp={e.hp} max={e.maxHp} /> : <span className={styles.roleTag}>{ROLE_LABEL[e.role]}</span>}</span>
               </button>

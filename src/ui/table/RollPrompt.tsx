@@ -6,6 +6,7 @@ import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
 import styles from './RollPrompt.module.css';
+import { shortName } from '@/engine/names';
 
 interface Props {
   state: GameState;
@@ -18,7 +19,7 @@ interface Props {
 
 /** "Brann, roll a d20 for a STR check, DC 13" */
 export function describeRequest(p: PendingRoll): string {
-  const who = p.rollerName.split(' ')[0];
+  const who = shortName(p.rollerName);
   if (p.stage === 'damage') return `${who} hits! Roll a d${p.die} for damage.`;
   const dice = p.diceCount === 2 ? `two d20 and keep the ${p.mode === 'advantage' ? 'higher' : 'lower'}` : 'a d20';
   if (p.kind === 'attack') return `${who}, roll ${dice} to attack ${p.targetName ?? 'the target'}.`;
@@ -92,7 +93,7 @@ export function RollPrompt({ state, physical, onDice, onHeroic, rollDigital }: P
       <section className={cx(styles.prompt, styles.heroic)} aria-label="Heroic Point" style={{ ['--player' as string]: member?.playerColor ?? 'var(--accent)' }}>
         <div className={styles.text}>
           <strong>
-            {p.rollerName.split(' ')[0]} rolled {describeCheck(p.main, p.kind === 'attack' ? 'Defense' : 'DC')}: not enough.
+            {shortName(p.rollerName)} rolled {describeCheck(p.main, p.kind === 'attack' ? 'Defense' : 'DC')}: not enough.
           </strong>
           <span>
             Spend a Heroic Point? ({member?.heroicPoints ?? 0} left)
