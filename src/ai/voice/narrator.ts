@@ -30,6 +30,8 @@ export interface NarratorDeps {
   onError?(message: string): void;
   /** Injected in tests; defaults to the real music ducking. */
   duck?(on: boolean): void;
+  /** Injected in tests; defaults to Date.now. */
+  now?(): number;
 }
 
 interface Item {
@@ -40,6 +42,8 @@ interface Item {
 }
 
 const MAX_PREPARING = 3;
+/** How long to use the browser voice after the configured voice service fails before trying it again. */
+export const FALLBACK_RETRY_MS = 60_000;
 
 /**
  * Reads the Dungeon Master aloud. Text is fed in as it streams; each complete sentence is sent to the
@@ -55,12 +59,20 @@ export class Narrator {
   private running = false;
   private silenced = false;
   private fallback: TtsProvider | null = null;
+  /** When to try the configured voice service again after it failed (a failure can be temporary). */
+  private fallbackUntil = 0;
+  private fallbackReported = false;
   private voices: { provider: TtsProvider; list: Promise<VoiceInfo[]> } | null = null;
 
   constructor(private deps: NarratorDeps) {}
 
+  private now(): number {
+    return this.deps.now ? this.deps.now() : Date.now();
+  }
+
   private provider(): TtsProvider {
-    return this.fallback ?? this.deps.provider();
+    if (this.fallback && this.now() < this.fallbackUntil) return this.fallback;
+    return this.deps.provider();
   }
 
   private voiceList(provider: TtsProvider): Promise<VoiceInfo[]> {
@@ -107,9 +119,14 @@ export class Narrator {
       } catch (e) {
         if (signal.aborted) return null;
         if (this.provider().id === 'browser') throw e;
-        // The chosen voice service failed: tell the user once and carry on with the browser's voice.
-        this.fallback = createBrowserTts();
-        this.deps.onError?.(`The voice service failed (${e instanceof Error ? e.message : String(e)}). Using the browser's built-in voice instead.`);
+        // The chosen voice service failed: tell the user once, use the browser's voice for a while, then
+        // try the service again (permission changes and rate limits are often temporary).
+        this.fallback ??= createBrowserTts();
+        this.fallbackUntil = this.now() + FALLBACK_RETRY_MS;
+        if (!this.fallbackReported) {
+          this.fallbackReported = true;
+          this.deps.onError?.(`The voice service failed (${e instanceof Error ? e.message : String(e)}). Using the browser's built-in voice for now; TaleForge will try it again in a minute.`);
+        }
         return await attempt(this.fallback);
       }
     } catch (e) {
@@ -164,6 +181,8 @@ export class Narrator {
   /** Forget a failed provider so the configured one is tried again (after settings change). */
   resetProvider(): void {
     this.fallback = null;
+    this.fallbackUntil = 0;
+    this.fallbackReported = false;
     this.voices = null;
   }
 }

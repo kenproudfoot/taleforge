@@ -65,6 +65,9 @@ export async function runDmTurn(deps: DmDeps, input: TurnInput): Promise<TurnRes
     if (input.type === 'players') for (const m of input.messages) state = recordSpotlight(state, m.characterId);
     const playerEntries: ChatEntry[] =
       input.type === 'players' ? input.messages.map((m) => ({ id: newId('player'), kind: 'player' as const, characterId: m.characterId, text: m.text })) : [];
+    // The turn's state snapshot, frozen for every request of the tool loop and kept in history afterwards,
+    // so each request's prefix is byte-identical to the last one and is read back from the prompt cache.
+    const frozenState = stateBlock(state, deps.campaign);
     deps.setSession((s) => ({
       ...s,
       state,
@@ -72,10 +75,11 @@ export async function runDmTurn(deps: DmDeps, input: TurnInput): Promise<TurnRes
       // Provider-private blocks (Claude's thinking) are only valid while everything before them is unchanged.
       // The state snapshot moves to this new turn's first message, so earlier turns' blocks are dropped here;
       // replaying them would be rejected ("block is bound to a different conversation").
-      history: [...s.history.map(({ raw: _raw, ...m }) => m), { role: 'user', content: [{ type: 'text', text: playerBlock(input, state) }] }],
+      history: [
+        ...s.history.map(({ raw: _raw, ...m }) => m),
+        { role: 'user', content: [{ type: 'text', text: frozenState }, { type: 'text', text: playerBlock(input, state) }] },
+      ],
     }));
-    // Frozen for the whole turn so every request of the tool loop shares the same prefix.
-    const frozenState = stateBlock(state, deps.campaign);
 
     let lastText = '';
     for (let step = 0; step < MAX_STEPS; step++) {

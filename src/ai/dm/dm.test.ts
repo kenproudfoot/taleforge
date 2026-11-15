@@ -156,14 +156,18 @@ describe('runDmTurn', () => {
     expect(result).toEqual({ ok: true, addressed: 'pc-lyra-vance' });
     expect(h.session.chat).toEqual([{ id: expect.any(String), kind: 'dm', text: 'Dusk in Brinewick. The bay is leaving. Lyra, what do you do?' }]);
     expect(h.session.history.map((m) => m.role)).toEqual(['user', 'assistant']);
-    expect(h.session.history[0]!.content[0]).toMatchObject({ text: expect.stringContaining('session begins') });
+    // The turn's state snapshot is stored first, then the players' words.
+    expect(h.session.history[0]!.content[0]).toMatchObject({ text: expect.stringMatching(/^<game_state>/) });
+    expect(h.session.history[0]!.content[1]).toMatchObject({ text: expect.stringContaining('session begins') });
     expect(h.session.state.turn).toBe(1);
     const req = h.provider.requests[0]!;
     expect(req.tools).toBe(DM_TOOLS);
     expect(req.tools).toHaveLength(19);
     expect(req.effort).toBe('low');
     expect(req.messages[0]!.content[0]).toMatchObject({ text: expect.stringContaining('<game_state>') });
-    expect(h.session.history[0]!.content).toHaveLength(1);
+    expect(h.session.history[0]!.content).toHaveLength(2);
+    // The request carries exactly what was stored: nothing is added on top.
+    expect(req.messages[0]!.content).toEqual(h.session.history[0]!.content);
     expect(h.session.usage.dm.inputTokens).toBe(100);
     expect(h.session.costUsd).toBeGreaterThan(0);
     expect(h.session.ledger).toEqual([
@@ -191,6 +195,27 @@ describe('runDmTurn', () => {
     // Same frozen state in both requests even though the location changed in between.
     expect(second!.messages[0]).toEqual(first!.messages[0]);
     expect(JSON.stringify(second!.messages[0])).toContain('Brinewick Shingle');
+  });
+
+  it('keeps every earlier message byte-identical from one turn to the next, so the prefix stays cached', async () => {
+    const h = harness([{ text: 'Dusk. Lyra?' }, { text: 'You go. Brann?', toolCalls: [{ name: 'scene_change', input: { location: 'causeway' } }] }, { text: 'Fog. Brann?' }, { text: 'Bells. Lyra?' }]);
+    await runDmTurn(h.deps, { type: 'start' });
+    await runDmTurn(h.deps, { type: 'players', messages: [{ characterId: 'pc-lyra-vance', text: 'We go.' }] });
+    await runDmTurn(h.deps, { type: 'players', messages: [{ characterId: 'pc-brann', text: 'I listen.' }] });
+    const reqs = h.provider.requests;
+    for (let i = 1; i < reqs.length; i++) {
+      const prev = reqs[i - 1]!.messages;
+      expect(reqs[i]!.messages.slice(0, prev.length - 1)).toEqual(prev.slice(0, prev.length - 1));
+    }
+    // Each turn has its own snapshot: the third turn's shows the new location.
+    const starts = h.session.history.filter((m) => m.role === 'user' && m.content[0]?.type === 'text' && m.content[0].text.startsWith('<game_state>'));
+    expect(starts).toHaveLength(3);
+    expect(JSON.stringify(starts[2])).toContain('Dead Tide Causeway');
+  });
+
+  it('attaches a snapshot to the current turn of a game saved before snapshots were stored', () => {
+    const legacy = [{ role: 'user' as const, content: [{ type: 'text' as const, text: '<players>\nhi\n</players>' }] }];
+    expect(buildMessages(legacy, '', '<game_state>\nX\n</game_state>')[0]!.content.map((b) => (b.type === 'text' ? b.text.slice(0, 12) : ''))).toEqual(['<game_state>', '<players>\nhi']);
   });
 
   it('replays thinking blocks only within the turn that produced them', async () => {

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { castVoice, genderHint } from './casting';
 import type { VoiceInfo } from './casting';
-import { Narrator } from './narrator';
+import { FALLBACK_RETRY_MS, Narrator } from './narrator';
 import type { NarratorConfig, SpeakingRange } from './narrator';
 import { cleanForSpeech, speechUnits } from './sentences';
 import { resolveSttProvider } from './stt';
@@ -297,5 +297,28 @@ describe('Narrator', () => {
     expect(errors.filter((e) => e.includes('voice service failed'))).toHaveLength(1);
     expect(narrator.speaking).toBe(false);
     narrator.resetProvider();
+  });
+
+  it('goes back to the voice service a minute after it failed', async () => {
+    const options = { failPrepare: true };
+    const tts = fakeTts(options);
+    let clock = 1_000;
+    const errors: string[] = [];
+    const full: NarratorConfig = { enabled: true, narratorVoice: 'narr', speed: 1, npcVoices: true, overrides: {}, hints: {} };
+    const narrator = new Narrator({ provider: () => tts.provider, config: () => full, onSpeaking: () => undefined, onError: (m) => errors.push(m), duck: () => undefined, now: () => clock });
+    narrator.feed('e1', 'One. ', true);
+    await settle(12);
+    expect(errors[0]).toMatch(/try it again in a minute/);
+    // The service recovers, but within the minute the browser voice is still used.
+    options.failPrepare = false;
+    narrator.feed('e2', 'Two. ', true);
+    await settle(12);
+    expect(tts.log.some((l) => l.startsWith('prepare:'))).toBe(false);
+    clock += FALLBACK_RETRY_MS + 1;
+    narrator.feed('e3', 'Three. ', true);
+    await settle(12);
+    expect(tts.log).toContain('prepare:narr:Three.');
+    expect(errors.filter((e) => e.includes('voice service failed'))).toHaveLength(1);
+    narrator.stop();
   });
 });

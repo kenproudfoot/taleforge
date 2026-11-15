@@ -21,9 +21,17 @@ export function playerBlock(input: TurnInput, state: GameState): string {
   return `<players>\n${lines.join('\n')}\n</players>`;
 }
 
-/** The volatile part of a turn message: the machine state and the pacing note. Never stored in history. */
+/**
+ * The machine state and the pacing note at the start of a turn. Stored as the first block of the turn's
+ * message and never changed afterwards, so the conversation prefix stays cacheable across turns.
+ */
 export function stateBlock(state: GameState, campaign: EngineCampaign): string {
   return `<game_state>\n${describeState(state, campaign)}\n</game_state>\n<pacing>\n${pacingNote(state, campaign)}\n</pacing>`;
+}
+
+/** Whether a text block is a stored state snapshot rather than the players' words. */
+export function isStateText(text: string): boolean {
+  return text.startsWith('<game_state>');
 }
 
 /** A user message that starts a turn (as opposed to one that only carries tool results). */
@@ -32,10 +40,9 @@ export function isTurnStart(m: ChatMessage): boolean {
 }
 
 /**
- * Builds the messages for a request: the rolling summary (if any), the verbatim history, and the frozen
- * state block attached to the current turn's opening message. The block is computed once per turn and
- * reused for every request of that turn's tool loop, so the conversation prefix stays byte-identical
- * (which keeps prompt caching and the model's own reasoning blocks valid).
+ * Builds the messages for a request: the rolling summary (if any) and the verbatim history. Each turn's
+ * opening message already carries the state snapshot taken when that turn began; `frozenState` is only
+ * attached to the current turn when it lacks one (games saved before snapshots were kept in history).
  */
 export function buildMessages(history: ChatMessage[], summary: string, frozenState: string): ChatMessage[] {
   const out: ChatMessage[] = [];
@@ -48,7 +55,9 @@ export function buildMessages(history: ChatMessage[], summary: string, frozenSta
     if (isTurnStart(m)) lastStart = i;
   });
   history.forEach((m, i) => {
-    if (i === lastStart) out.push({ ...m, content: [{ type: 'text', text: frozenState }, ...m.content] });
+    const first = m.content[0];
+    const hasState = first?.type === 'text' && isStateText(first.text);
+    if (i === lastStart && !hasState) out.push({ ...m, content: [{ type: 'text', text: frozenState }, ...m.content] });
     else out.push(m);
   });
   return out;
@@ -61,7 +70,7 @@ function transcript(messages: ChatMessage[]): string {
   const lines: string[] = [];
   for (const m of messages) {
     for (const b of m.content) {
-      if (b.type === 'text' && b.text.trim()) lines.push(`${m.role === 'assistant' ? 'DM' : 'TABLE'}: ${b.text.trim()}`);
+      if (b.type === 'text' && b.text.trim() && !isStateText(b.text)) lines.push(`${m.role === 'assistant' ? 'DM' : 'TABLE'}: ${b.text.trim()}`);
       else if (b.type === 'tool_use') lines.push(`DM used ${b.name}: ${JSON.stringify(b.input)}`);
       else if (b.type === 'tool_result') lines.push(`RESULT of ${b.name}: ${b.content}`);
     }
