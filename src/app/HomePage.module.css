@@ -90,3 +90,39 @@
   gap: var(--s-4);
   flex-wrap: wrap;
 }
+.saves {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.saves h2 {
+  font-size: 20px;
+}
+.saveList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.save {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  background: var(--bg-raised);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  flex-wrap: wrap;
+}
+.saveText {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+}
+.saveText span {
+  color: var(--text-dim);
+  font-size: 13.5px;
+}

@@ -14,6 +14,17 @@ import '@fontsource/orbitron/700.css';
 import './ui/tokens.css';
 import { App } from './app/App';
 
+// Test and demo hook: answer all model requests from a script instead of a real provider.
+try {
+  const script = localStorage.getItem('taleforge:e2e');
+  if (script) {
+    const { installE2eProvider } = await import('./ai/e2e');
+    installE2eProvider(JSON.parse(script) as Parameters<typeof installE2eProvider>[0]);
+  }
+} catch {
+  // ignore a malformed script
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />

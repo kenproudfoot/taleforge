@@ -1,0 +1,83 @@
+.bar {
+  border-top: 1px solid var(--line);
+  background: var(--bg-glass);
+  backdrop-filter: blur(10px);
+  padding: var(--s-3) var(--s-5) var(--s-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.speakers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.speakLabel {
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin-right: 4px;
+}
+.speaker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 8px;
+  border-radius: var(--r-pill);
+  border: 1.5px solid var(--line-strong);
+  background: var(--bg-sunken);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 14px;
+}
+.speaker small {
+  color: var(--bad);
+}
+.speakerOn {
+  color: var(--text);
+  border-color: var(--player);
+  background: color-mix(in srgb, var(--player) 20%, var(--bg-sunken));
+}
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--player);
+}
+.inputRow {
+  display: flex;
+  gap: var(--s-2);
+  align-items: flex-end;
+}
+.text {
+  flex: 1;
+  min-height: 42px;
+  max-height: 140px;
+  resize: none;
+  field-sizing: content;
+  font-size: 15.5px;
+}
+.diceWrap {
+  position: relative;
+}
+.dicePop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  display: flex;
+  gap: 6px;
+  padding: var(--s-2);
+  background: var(--bg-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  z-index: 5;
+}
+@media (max-width: 700px) {
+  .bar {
+    padding: var(--s-2) var(--s-3) var(--s-3);
+  }
+}

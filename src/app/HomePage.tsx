@@ -1,9 +1,13 @@
+import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { formatClock } from '@/game/session';
+import type { SessionSummary } from '@/game/session';
+import { deleteSession, listSessions } from '@/storage/sessions';
 import { Icon } from '@/ui/Icon';
-import controls from '@/ui/controls.module.css';
-import { UnlockPanel } from '@/ui/settings/DataSection';
 import type { IconName } from '@/ui/Icon';
+import controls from '@/ui/controls.module.css';
 import { cx } from '@/ui/cx';
+import { UnlockPanel } from '@/ui/settings/DataSection';
 import styles from './HomePage.module.css';
 import { useSettings } from './settingsStore';
 
@@ -16,12 +20,25 @@ interface Action {
 }
 
 const ACTIONS: Action[] = [
+  { to: '/new', icon: 'play', title: 'New game', text: 'Pick a campaign, create your characters and begin.', primary: true },
   { to: '/library', icon: 'book', title: 'Campaign library', text: 'Browse the bundled adventures or import your own campaign pack.' },
   { to: '/settings', icon: 'settings', title: 'Settings', text: 'API keys, models, voices, pictures, music and backups.' },
 ];
 
+function when(timestamp: number): string {
+  return new Date(timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+}
+
 export function HomePage() {
   const setupComplete = useSettings((s) => s.settings.setupComplete);
+  const [saves, setSaves] = useState<SessionSummary[]>([]);
+  const refresh = useCallback(() => {
+    listSessions()
+      .then(setSaves)
+      .catch(() => setSaves([]));
+  }, []);
+  useEffect(refresh, [refresh]);
+
   return (
     <div className={styles.page}>
       <section className={styles.hero}>
@@ -52,6 +69,29 @@ export function HomePage() {
           </Link>
         ))}
       </nav>
+      {saves.length > 0 && (
+        <section className={styles.saves} aria-labelledby="saves-heading">
+          <h2 id="saves-heading">Continue a saved game</h2>
+          <ul className={styles.saveList}>
+            {saves.map((s) => (
+              <li key={s.id} className={styles.save}>
+                <div className={styles.saveText}>
+                  <strong>{s.campaignTitle}</strong>
+                  <span>
+                    {s.party.join(', ')} · {s.ended ? 'Finished' : `Act ${s.act}`} · {formatClock(s.elapsedMs)} played · {when(s.updatedAt)}
+                  </span>
+                </div>
+                <Link to={`/play/${s.id}`} className={cx(controls.btn, !s.ended && controls.primary)}>
+                  <Icon name={s.ended ? 'book' : 'play'} /> {s.ended ? 'Read' : 'Continue'}
+                </Link>
+                <button type="button" className={cx(controls.btn, controls.icon, controls.danger)} aria-label={`Delete the saved game of ${s.campaignTitle}`} onClick={() => void deleteSession(s.id).then(refresh)}>
+                  <Icon name="trash" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </div>
   );
 }
