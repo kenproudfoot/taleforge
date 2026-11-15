@@ -6,6 +6,8 @@ export interface MockTurn {
   stopReason?: StopReason;
   /** Throw this instead of responding. */
   error?: Error;
+  /** Provider-private content to attach, like a real adapter's thinking blocks. */
+  raw?: { provider: 'anthropic'; model: string; content: unknown };
 }
 
 export type MockScript = MockTurn[] | ((req: ChatRequest, callIndex: number) => MockTurn);
@@ -40,7 +42,7 @@ export function createMockProvider(script: MockScript, models = ['mock-dm', 'moc
       for (const [i, call] of calls.entries()) yield { type: 'tool_call', id: `mock-${index}-${i}`, name: call.name, input: call.input };
       const outputTokens = Math.ceil((turn.text ?? '').length / 4) + calls.length * 20;
       yield { type: 'usage', usage: { inputTokens: 100, outputTokens, cacheReadTokens: 0, cacheWriteTokens: 0 } };
-      yield { type: 'done', stopReason: turn.stopReason ?? (calls.length ? 'tool_use' : 'end') };
+      yield { type: 'done', stopReason: turn.stopReason ?? (calls.length ? 'tool_use' : 'end'), raw: turn.raw };
     },
   };
 }

@@ -69,7 +69,10 @@ export async function runDmTurn(deps: DmDeps, input: TurnInput): Promise<TurnRes
       ...s,
       state,
       chat: [...s.chat, ...playerEntries, ...started.lines.map((line) => chip(line, 'bad'))],
-      history: [...s.history, { role: 'user', content: [{ type: 'text', text: playerBlock(input, state) }] }],
+      // Provider-private blocks (Claude's thinking) are only valid while everything before them is unchanged.
+      // The state snapshot moves to this new turn's first message, so earlier turns' blocks are dropped here;
+      // replaying them would be rejected ("block is bound to a different conversation").
+      history: [...s.history.map(({ raw: _raw, ...m }) => m), { role: 'user', content: [{ type: 'text', text: playerBlock(input, state) }] }],
     }));
     // Frozen for the whole turn so every request of the tool loop shares the same prefix.
     const frozenState = stateBlock(state, deps.campaign);

@@ -165,6 +165,7 @@ try {
         continue;
       }
       if (await page.getByRole('dialog', { name: /^(Victory|Defeat|A bittersweet ending)$/ }).isVisible().catch(() => false)) return 'ended';
+      if ((await chat.getAttribute('data-busy')) === 'false' && (await chat.getByRole('button', { name: 'Try again' }).last().isVisible().catch(() => false))) return 'error';
       if ((await chat.getAttribute('data-busy')) === 'false') {
         await page.waitForTimeout(600);
         if (!(await rollRequest.isVisible().catch(() => false))) return 'ready';
@@ -192,6 +193,7 @@ try {
   }
   if (state === 'ended') stopReason = 'campaign ended';
   if (state === 'timeout') stopReason = 'timed out waiting for the Dungeon Master';
+  if (state === 'error') stopReason = 'the Dungeon Master returned an error (see transcript.txt)';
   await page.waitForTimeout(4000); // let pictures and voice in flight finish
   await shot('99-final');
 

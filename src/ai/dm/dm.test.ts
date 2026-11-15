@@ -193,6 +193,23 @@ describe('runDmTurn', () => {
     expect(JSON.stringify(second!.messages[0])).toContain('Brinewick Shingle');
   });
 
+  it('replays thinking blocks only within the turn that produced them', async () => {
+    const thinking = (n: number) => ({ provider: 'anthropic' as const, model: 'mock-dm', content: [{ type: 'thinking', thinking: `plan ${n}`, signature: `sig-${n}` }] });
+    const h = harness([
+      { text: 'You set out.', toolCalls: [{ name: 'scene_change', input: { location: 'causeway' } }], raw: thinking(1) },
+      { text: 'Fog closes in. Brann?', raw: thinking(2) },
+      { text: 'The bell rings. Lyra?', raw: thinking(3) },
+    ]);
+    await runDmTurn(h.deps, { type: 'players', messages: [{ characterId: 'pc-lyra-vance', text: 'We go.' }] });
+    // Inside the turn, the second request carries the first reply's thinking unchanged.
+    expect(h.provider.requests[1]!.messages[1]!.raw).toEqual(thinking(1));
+    await runDmTurn(h.deps, { type: 'players', messages: [{ characterId: 'pc-brann', text: 'I listen.' }] });
+    // The next turn moves the state snapshot, so the earlier turn's thinking is no longer sent.
+    const next = h.provider.requests[2]!.messages;
+    expect(next.filter((m) => m.raw)).toEqual([]);
+    expect(h.session.history.filter((m) => m.raw).map((m) => m.raw)).toEqual([thinking(3)]);
+  });
+
   it('pauses for a player roll and hands the engine result back to the model', async () => {
     const h = harness(
       [
