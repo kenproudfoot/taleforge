@@ -1,3 +1,21 @@
 {
-  "campaigns": []
+  "campaigns": [
+    {
+      "id": "the-sunken-crown",
+      "title": "The Sunken Crown",
+      "genre": "medieval-fantasy",
+      "era": "The storm-bitten coast of Velmar, an age of swords and old oaths",
+      "tagline": "The sea gave back a drowned city for one night. Its king is still wearing the crown.",
+      "players": "1-4",
+      "targetMinutes": 45,
+      "contentRating": "PG-13",
+      "theme": {
+        "accent": "#d9b45a",
+        "background": "#0c1316",
+        "display_font": "Cinzel",
+        "bubble": "parchment"
+      },
+      "keyArt": null
+    }
+  ]
 }

@@ -1,12 +1,19 @@
-// Generates public/content/campaigns/index.json from the bundled campaign folders.
-// Fleshed out in the content-system phase; safe to run when no campaigns exist yet.
-import { existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+// Generates public/content/campaigns/index.json: the list of bundled campaigns shown in the picker.
+import { writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { summarizePack } from '../src/content/summary';
+import { CAMPAIGNS_ROOT, listCampaignFolders, readPackFolder } from './lib/packs';
 
-const root = join(process.cwd(), 'public/content/campaigns');
-mkdirSync(root, { recursive: true });
-const ids = readdirSync(root)
-  .filter((name) => statSync(join(root, name)).isDirectory() && existsSync(join(root, name, 'campaign.md')))
-  .sort();
-writeFileSync(join(root, 'index.json'), JSON.stringify({ campaigns: ids.map((id) => ({ id })) }, null, 2) + '\n');
-console.log(`campaign index: ${ids.length} campaign(s)`);
+mkdirSync(CAMPAIGNS_ROOT, { recursive: true });
+const campaigns = [];
+for (const name of listCampaignFolders()) {
+  const { pack } = readPackFolder(join(CAMPAIGNS_ROOT, name), name);
+  if (!pack) {
+    console.error(`skipping ${name}: it has validation errors (run npm run validate:campaigns)`);
+    process.exitCode = 1;
+    continue;
+  }
+  campaigns.push(summarizePack(pack));
+}
+writeFileSync(join(CAMPAIGNS_ROOT, 'index.json'), JSON.stringify({ campaigns }, null, 2) + '\n');
+console.log(`campaign index: ${campaigns.length} campaign(s)`);
