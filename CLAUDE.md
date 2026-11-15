@@ -14,7 +14,10 @@ commit at the end of each phase, only with tests green).
 | `npm run validate:campaigns` | Validates every pack in `public/content/campaigns` |
 | `npm run build` | Rebuilds the campaign index, typechecks, bundles to `dist/` |
 | `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
-| `npm run docs:screenshots` | Real-run Playwright pass that writes `docs/images/` (needs `.env.local` keys) |
+| `npm run check` | lint + typecheck + coverage + campaign validation (run before every commit) |
+| `npm run docs:screenshots` | Builds, plays a scripted session in Playwright and writes `docs/images/` |
+| `npm run generate:audio [-- <id>]` | Re-renders the code-composed music and SFX (macOS: uses `afconvert`) |
+| `npm run import:music -- <file> <id>` | Converts an owner-supplied track to AAC in `public/content/audio/music/` (macOS) |
 
 ## Architecture
 
@@ -27,6 +30,9 @@ commit at the end of each phase, only with tests green).
 - `src/ui/` React components; `src/app/` routes and shell. Hash router; Vite `base` is `/taleforge/`
   (override with `BASE_PATH`).
 - `public/content/` core rules, bundled campaigns and audio. `scripts/` Node tooling run with `tsx`.
+- See `docs/ARCHITECTURE.md` for the full picture and `docs/CAMPAIGN_AUTHORING.md` for the pack format.
+- E2E tests script the Dungeon Master by setting `localStorage["taleforge:e2e"]` before the page loads (see
+  `src/ai/e2e.ts`). Hash-only navigation does not reload, so add the init script before the first `goto`.
 
 ## Rules
 
@@ -40,5 +46,6 @@ commit at the end of each phase, only with tests green).
 - The DM model never does maths: the engine resolves every roll and state change from validated tool calls.
 - Styling: CSS variables in `src/ui/tokens.css` + CSS modules; campaign themes override the accent/background/display
   font variables at runtime.
+- Commit only when `npm run check` and `npm run e2e` both pass; gate the commit on their exit codes.
 - Toolchain is current-major (TypeScript 6, Vite 8, Vitest 5, zod 4, ESLint 10 flat config): check the installed
   version's API before assuming older syntax.

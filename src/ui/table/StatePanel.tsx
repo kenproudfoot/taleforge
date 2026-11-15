@@ -48,7 +48,7 @@ export function StatePanel({ session, campaign, onBoost }: { session: Session; c
               <li key={act.id} className={cx(styles.act, i === state.actIndex && styles.actNow, i < state.actIndex && styles.actDone)} aria-current={i === state.actIndex ? 'step' : undefined}>
                 <span className={styles.actNum}>{i < state.actIndex ? <Icon name="check" size={12} /> : i + 1}</span>
                 <span className={styles.actTitle}>{act.title}</span>
-                <span className={styles.beats} aria-label={`${done} of ${act.beats.length} beats`}>
+                <span className={styles.beats} role="img" aria-label={`${done} of ${act.beats.length} beats`}>
                   {act.beats.map((b) => (
                     <i key={b} className={state.beatsCompleted.includes(b) ? styles.beatDone : undefined} />
                   ))}

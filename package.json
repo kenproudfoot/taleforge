@@ -15,7 +15,7 @@
     "e2e": "playwright test",
     "validate:campaigns": "tsx scripts/validate-campaigns.ts",
     "build:index": "tsx scripts/build-campaign-index.ts",
-    "docs:screenshots": "tsx scripts/docs-screenshots.ts",
+    "docs:screenshots": "npm run build && tsx scripts/docs-screenshots.ts",
     "check": "npm run lint && npm run typecheck && npm run coverage && npm run validate:campaigns",
     "import:music": "tsx scripts/import-music.ts",
     "generate:audio": "tsx scripts/generate-audio.ts"
@@ -41,6 +41,7 @@
     "zustand": "^5.1.0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.65.1",
     "@testing-library/jest-dom": "^7.0.1",

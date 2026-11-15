@@ -232,10 +232,13 @@ export function Roster({ session, campaign }: { session: Session; campaign: Engi
         <AnimatePresence initial={false}>
           {present.map((e) => (
             <motion.li key={e.id} layout initial={{ opacity: 0, scale: 0.6, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.5, y: -8 }} transition={{ duration: 0.3 }}>
-              <button type="button" className={styles.thumb} onClick={() => setSelected({ kind: 'npc', id: e.id })} aria-label={`${e.name}, ${ROLE_LABEL[e.role]}. Open card`}>
+              <button type="button" className={styles.thumb} onClick={() => setSelected({ kind: 'npc', id: e.id })}>
                 <Avatar name={e.name} role={e.role} imageKey={session.images.portraits[e.id]} size={56} dimmed={e.status !== 'active'} />
-                <span className={styles.thumbName}>{e.name.replace(/^The /, '').split(' ')[0]}</span>
-                {e.role === 'enemy' || e.role === 'boss' ? <HpBar hp={e.hp} max={e.maxHp} /> : <span className={styles.roleTag}>{ROLE_LABEL[e.role]}</span>}
+                <span className="sr-only">{`${e.name}, ${ROLE_LABEL[e.role]}. Open card`}</span>
+                <span className={styles.thumbName} aria-hidden="true">
+                  {e.name.replace(/^The /, '').split(' ')[0]}
+                </span>
+                <span aria-hidden="true">{e.role === 'enemy' || e.role === 'boss' ? <HpBar hp={e.hp} max={e.maxHp} /> : <span className={styles.roleTag}>{ROLE_LABEL[e.role]}</span>}</span>
               </button>
             </motion.li>
           ))}
