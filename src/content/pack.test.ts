@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 const TRACK_IDS = (JSON.parse(readFileSync(join(process.cwd(), 'public/content/audio/tracks.json'), 'utf8')) as { tracks: Array<{ id: string }> }).tracks.map((t) => t.id);
 /** The campaign file with its audio block replaced. */
-const withAudioBlock = (text: string, block: string) => text.replace(/^audio:\n(?:  .*\n)+/m, block);
+const withAudioBlock = (text: string, block: string) => text.replace(/^audio:\n(?: {2}.*\n)+/m, block);
 
 const GOOD = readPackFiles();
 
