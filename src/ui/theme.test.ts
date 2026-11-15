@@ -33,6 +33,8 @@ describe('themeStyle', () => {
     expect(luminance(style['--bg']!)).toBeLessThan(0.08);
     expect(contrast(style['--accent']!, style['--bg']!)).toBeGreaterThanOrEqual(4.5);
     expect(style['--font-display']).toMatch(/Cinzel/);
-    expect(style['--accent-ink']).toBe('#ffffff');
+    expect(contrast(style['--accent-ink']!, style['--accent']!)).toBeGreaterThanOrEqual(4.5);
+    const deep = themeStyle({ accent: '#7a1f1f', background: '#000000', display_font: 'Inter', bubble: 'plain' }) as Record<string, string>;
+    expect(contrast(deep['--accent-ink']!, deep['--accent']!)).toBeGreaterThanOrEqual(4.5);
   });
 });

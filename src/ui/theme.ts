@@ -65,6 +65,7 @@ export function themeStyle(theme: CampaignTheme): CSSProperties {
   const [r, g, b] = parseHex(accent);
   const raised = mix(bg, '#ffffff', 0.055);
   const [rr, rg, rb] = parseHex(raised);
+  const darkInk = mix(bg, '#000000', 0.4);
   return {
     '--bg': bg,
     '--bg-raised': raised,
@@ -73,7 +74,7 @@ export function themeStyle(theme: CampaignTheme): CSSProperties {
     '--accent': accent,
     '--accent-strong': mix(accent, '#ffffff', 0.35),
     '--accent-soft': `rgba(${r}, ${g}, ${b}, 0.14)`,
-    '--accent-ink': luminance(accent) > 0.35 ? mix(bg, '#000000', 0.4) : '#ffffff',
+    '--accent-ink': contrast(darkInk, accent) >= contrast('#ffffff', accent) ? darkInk : '#ffffff',
     '--font-display': FONT_STACKS[theme.display_font] ?? FONT_STACKS.Cinzel,
   } as CSSProperties;
 }

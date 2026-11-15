@@ -15,7 +15,8 @@
     "e2e": "playwright test",
     "validate:campaigns": "tsx scripts/validate-campaigns.ts",
     "build:index": "tsx scripts/build-campaign-index.ts",
-    "docs:screenshots": "tsx scripts/docs-screenshots.ts"
+    "docs:screenshots": "tsx scripts/docs-screenshots.ts",
+    "check": "npm run lint && npm run typecheck && npm run coverage && npm run validate:campaigns"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.3.0",
