@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { estimateCost, formatCost, formatTokens, priceFor } from '@/ai/pricing';
+import { PlaytestSurvey } from './PlaytestSurvey';
 import { UsagePanel } from './UsagePanel';
 import { useSettings } from '@/app/settingsStore';
 import { useDiceTray } from '@/dice/DiceTray';
@@ -10,7 +11,8 @@ import { STATS } from '@/engine/types';
 import { recapFileName } from '@/game/recap';
 import { formatClock, usesPhysicalDice } from '@/game/session';
 import type { DiceMode } from '@/game/session';
-import { useGame } from '@/game/store';
+import { playtestFileId } from '@/game/playtest';
+import { playtestLogFor, useGame } from '@/game/store';
 import { Icon } from '../Icon';
 import { Modal } from '../Modal';
 import controls from '../controls.module.css';
@@ -54,6 +56,8 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
   const [tab, setTab] = useState<SideTab>('scene');
   const [modelOpen, setModelOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
+  const [surveyOpen, setSurveyOpen] = useState(false);
+  const playtesting = useSettings((s) => s.settings.playtest.enabled);
   const [boostOpen, setBoostOpen] = useState(false);
   const [summaryDismissed, setSummaryDismissed] = useState(false);
   const [saving, setSaving] = useState<'idle' | 'writing' | 'done'>('idle');
@@ -150,7 +154,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
 
       <div className={styles.body}>
         <main className={styles.chat}>
-          <ChatLog session={session} busy={game.busy} onRetry={() => void game.retry()} speaking={slots.speaking} />
+          <ChatLog session={session} busy={game.busy} onRetry={() => void game.retry()} speaking={slots.speaking} feedback={playtesting ? session.playtest.feedback : null} onFeedback={game.setFeedback} />
           {!game.busy && !state.ended && session.history.length === 0 && session.summary.trim() !== '' && (
             <div className={styles.resume}>
               <span>This game was restored from a recap. The Dungeon Master will remind everyone where things stand.</span>
@@ -256,6 +260,11 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
             <button type="button" className={controls.btn} onClick={() => setUsageOpen(true)}>
               <Icon name="sparkle" /> Usage and costs
             </button>
+            {playtesting && (
+              <button type="button" className={controls.btn} onClick={() => setSurveyOpen(true)}>
+                <Icon name="file" /> Playtest notes
+              </button>
+            )}
             <Link to="/settings" className={controls.btn} onClick={() => void game.save()}>
               <Icon name="settings" /> Settings
             </Link>
@@ -263,6 +272,17 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
         </Modal>
       )}
 
+      {surveyOpen && (
+        <PlaytestSurvey
+          initial={session.playtest.survey}
+          onSave={game.setSurvey}
+          onClose={() => setSurveyOpen(false)}
+          onDownload={() => {
+            const log = playtestLogFor(session);
+            downloadText(`taleforge-playtest_${playtestFileId(log)}.json`, JSON.stringify(log, null, 2), 'application/json');
+          }}
+        />
+      )}
       {usageOpen && <UsagePanel session={session} targetMinutes={campaign.targetMinutes} onClose={() => setUsageOpen(false)} />}
 
       {boostOpen && boostMembers.length > 0 && (
@@ -309,6 +329,14 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
               <dd>{state.party.map((p) => p.name).join(', ')}</dd>
             </div>
           </dl>
+          {playtesting && (
+            <p className={controls.hint}>
+              Playtesting: tell us how it went.{' '}
+              <button type="button" className={cx(controls.btn, controls.small)} onClick={() => setSurveyOpen(true)}>
+                <Icon name="file" size={14} /> Playtest notes
+              </button>
+            </p>
+          )}
           <div className={controls.row}>
             <button type="button" className={cx(controls.btn, controls.primary)} onClick={() => void leave()}>
               <Icon name="home" /> Home

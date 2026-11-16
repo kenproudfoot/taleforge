@@ -21,7 +21,11 @@ import type { Rng } from '@/engine/rng';
 import { chooseHeroic as engineChooseHeroic, submitDice as engineSubmitDice } from '@/engine/rolls';
 import { applyMilestoneBoost, tick as engineTick } from '@/engine/state';
 import type { Effect, EngineCampaign, RollReport, Stat } from '@/engine/types';
+import { queuePlaytestLog } from '@/storage/playtestSync';
 import { loadSession, saveSession } from '@/storage/sessions';
+import { addPlaytestEvent, buildPlaytestLog } from './playtest';
+import type { PlaytestLog } from './playtest';
+import type { PlaytestEvent, PlaytestFeedback, PlaytestSurvey, PlaytestTool } from './playtest';
 import { RECAP_SYSTEM, buildRecap, fallbackProse, parseProse, recapRequest } from './recap';
 import { newId } from './session';
 import type { DiceMode, Session } from './session';
@@ -75,6 +79,17 @@ interface GameStore {
   patch(change: (s: Session) => Session): void;
   save(): Promise<void>;
   close(): void;
+  /** Adds an event to the open game's playtest log. */
+  logPlaytest(event: PlaytestEvent): void;
+  /** Rates a DM message for the playtest log (null clears it). */
+  setFeedback(entryId: string, rating: PlaytestFeedback['rating'] | null, note?: string): void;
+  setSurvey(survey: Omit<PlaytestSurvey, 'at'>): void;
+}
+
+function describeInput(input: TurnInput, session: Session): string {
+  if (input.type === 'start') return '(opening)';
+  if (input.type === 'resume') return '(resume)';
+  return input.messages.map((m) => `${session.state.party.find((p) => p.id === m.characterId)?.name ?? 'Player'}: ${m.text}`).join(' / ');
 }
 
 let rng: Rng = createCryptoRng();
@@ -87,6 +102,18 @@ let rollResolver: ((report: RollReport) => void) | null = null;
 let abort: AbortController | null = null;
 let lastInput: TurnInput | null = null;
 let unsubscribeHelper: (() => void) | null = null;
+
+/** The playtest log of a game as it stands, with the current setup (saved to playtests/ or downloaded). */
+export function playtestLogFor(session: Session): PlaytestLog {
+  const settings = useSettings.getState().settings;
+  return buildPlaytestLog(session, {
+    dm: `${session.dm.provider} ${session.dm.model}`,
+    helper: `${settings.helper.provider} ${settings.helper.model}`,
+    voice: settings.voice.enabled ? `${settings.voice.provider} ${settings.voice.model}`.trim() : 'off',
+    speech: settings.speech.provider,
+    pictures: `${settings.image.provider} ${settings.image.model}`.trim(),
+  });
+}
 
 export const useGame = create<GameStore>((set, get) => {
   const patch = (change: (s: Session) => Session) => {
@@ -104,9 +131,21 @@ export const useGame = create<GameStore>((set, get) => {
     set({ busy: true });
     emit({ type: 'turn_started' });
     let ok = false;
+    // Playtest timing: how long the table waits for the DM, excluding time spent rolling dice.
+    const startedAt = Date.now();
+    let rollWait = 0;
+    let firstMs: number | null = null;
+    let requests = 0;
+    let turnError: string | undefined;
+    const tools: PlaytestTool[] = [];
+    const markFirst = () => {
+      firstMs ??= Date.now() - startedAt - rollWait;
+    };
     try {
       let provider = getTextProvider(session.dm.provider, settings.keys);
       if (settings.dm.toolMode === 'json') provider = withJsonTools(provider);
+      const base = provider;
+      provider = { ...base, stream: (req) => (requests++, base.stream(req)) };
       let streaming: { id: string; text: string } | null = null;
       const result = await runDmTurn(
         {
@@ -122,6 +161,7 @@ export const useGame = create<GameStore>((set, get) => {
             patch(change);
             // Forward streaming narration to listeners (the voice service speaks it sentence by sentence).
             const last = get().session?.chat.at(-1);
+            if (last?.kind === 'dm' && last.text) markFirst();
             if (last?.kind === 'dm' && (streaming?.id !== last.id || streaming.text !== last.text)) {
               if (streaming && streaming.id !== last.id) emit({ type: 'dm_text', entryId: streaming.id, text: streaming.text, done: true });
               streaming = { id: last.id, text: last.text };
@@ -132,11 +172,19 @@ export const useGame = create<GameStore>((set, get) => {
             if (streaming) emit({ type: 'dm_text', entryId: streaming.id, text: streaming.text, done: true });
             streaming = null;
             if (pending.rollerIsParty) set({ speaker: pending.rollerId });
+            const waitingSince = Date.now();
             return new Promise<RollReport>((resolve) => {
-              rollResolver = resolve;
+              rollResolver = (report) => {
+                rollWait += Date.now() - waitingSince;
+                resolve(report);
+              };
             });
           },
           onEffect: emit,
+          onTool: (name, toolOk, error) => {
+            markFirst();
+            tools.push(toolOk ? { name, ok: true } : { name, ok: false, error });
+          },
           signal: abort.signal,
         },
         input,
@@ -144,14 +192,18 @@ export const useGame = create<GameStore>((set, get) => {
       const finished = streaming as { id: string; text: string } | null;
       if (finished) emit({ type: 'dm_text', entryId: finished.id, text: finished.text, done: true });
       ok = result.ok;
+      if (!result.ok) turnError = result.error;
       if (result.ok) {
         lastInput = null;
         if (result.addressed) set({ speaker: result.addressed });
       }
     } catch (e) {
       const text = e instanceof Error ? e.message : String(e);
+      turnError = text;
       patch((s) => ({ ...s, chat: [...s.chat, { id: newId('error'), kind: 'error', text }] }));
     } finally {
+      const turn = get().session?.state.turn ?? 0;
+      get().logPlaytest({ type: 'turn', at: startedAt, turn, input: describeInput(input, session), waitMs: Date.now() - startedAt - rollWait, firstMs, requests, ok, ...(turnError ? { error: turnError } : {}), tools });
       rollResolver = null;
       abort = null;
       set({ busy: false });
@@ -364,7 +416,29 @@ export const useGame = create<GameStore>((set, get) => {
 
     async save() {
       const { session } = get();
-      if (session) await saveSession(session);
+      if (!session) return;
+      await saveSession(session);
+      const settings = useSettings.getState().settings;
+      if (settings.playtest.enabled) queuePlaytestLog(playtestLogFor(session));
+    },
+
+    logPlaytest(event) {
+      patch((s) => ({ ...s, playtest: addPlaytestEvent(s.playtest, event) }));
+    },
+
+    setFeedback(entryId, rating, note = '') {
+      patch((s) => {
+        const feedback = { ...s.playtest.feedback };
+        if (rating === null) delete feedback[entryId];
+        else feedback[entryId] = { rating, note: note.trim(), at: Date.now() };
+        return { ...s, playtest: { ...s.playtest, feedback } };
+      });
+      void get().save();
+    },
+
+    setSurvey(survey) {
+      patch((s) => ({ ...s, playtest: { ...s.playtest, survey: { ...survey, at: Date.now() } } }));
+      void get().save();
     },
 
     close() {

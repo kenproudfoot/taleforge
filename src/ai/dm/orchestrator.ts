@@ -35,6 +35,8 @@ export interface DmDeps {
    */
   awaitRoll(pending: PendingRoll): Promise<RollReport>;
   onEffect?(effect: Effect): void;
+  /** Reports each tool call and whether the engine accepted it (for the playtest log). */
+  onTool?(name: string, ok: boolean, error?: string): void;
   signal?: AbortSignal;
 }
 
@@ -142,6 +144,7 @@ export async function runDmTurn(deps: DmDeps, input: TurnInput): Promise<TurnRes
       const results: ContentBlock[] = [];
       for (const call of toolCalls) {
         const outcome = applyToolCall(deps.getSession().state, deps.campaign, { name: call.name, input: call.input }, deps.rng);
+        deps.onTool?.(call.name, outcome.ok, outcome.ok ? undefined : JSON.stringify(outcome.result).slice(0, 300));
         deps.setSession((s) => ({ ...s, state: outcome.state }));
         let result = outcome.result;
         const entries: ChatEntry[] = [];
@@ -177,6 +180,7 @@ export async function runDmTurn(deps: DmDeps, input: TurnInput): Promise<TurnRes
       costUsd: s.costUsd,
       ledger: s.ledger,
       images: s.images,
+      playtest: s.playtest,
       chat: aborted ? before.chat : [...before.chat, { id: newId('error'), kind: 'error', text: message }],
     }));
     return { ok: false, addressed: null, error: message };

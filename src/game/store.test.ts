@@ -80,6 +80,30 @@ describe('game store', () => {
     expect(game().session!.chat[1]).toMatchObject({ characterId: 'pc-brann', text: 'I jump the gap.' });
     expect(game().speaker).toBe('pc-lyra-vance');
     expect(mock.requests).toHaveLength(3);
+    // The playtest log has both turns, with the tool calls and request counts; dice time is not counted as waiting.
+    const turns = game().session!.playtest.events.filter((e) => e.type === 'turn');
+    expect(turns.map((t) => (t.type === 'turn' ? [t.input, t.requests, t.ok, t.tools.map((x) => x.name)] : null))).toEqual([
+      ['(opening)', 1, true, []],
+      ['Brann: I jump the gap.', 2, true, ['request_roll']],
+    ]);
+    expect(turns[1]).toMatchObject({ firstMs: expect.any(Number), waitMs: expect.any(Number) });
+  });
+
+  it('records failed turns, feedback and the end-of-game notes in the playtest log', async () => {
+    const { done } = start([{ text: 'Dusk. Brann?' }, { error: new ProviderError('server', 'LM Studio is not answering') }]);
+    await done;
+    await game().send('We go.');
+    const failed = game().session!.playtest.events.at(-1);
+    expect(failed).toMatchObject({ type: 'turn', ok: false, error: expect.stringContaining('server error') });
+    const dmId = game().session!.chat[0]!.id;
+    game().setFeedback(dmId, 'down', '  should have asked for a roll ');
+    expect(game().session!.playtest.feedback[dmId]).toMatchObject({ rating: 'down', note: 'should have asked for a roll' });
+    game().setFeedback(dmId, null);
+    expect(game().session!.playtest.feedback).toEqual({});
+    game().setSurvey({ fun: 4, pacing: 'too slow', confusing: 'the map', other: '' });
+    expect(game().session!.playtest.survey).toMatchObject({ fun: 4, pacing: 'too slow', at: expect.any(Number) });
+    await game().save();
+    expect((await loadSession(game().session!.id))!.playtest.survey).toMatchObject({ fun: 4 });
   });
 
   it('ignores empty input and input while busy', async () => {

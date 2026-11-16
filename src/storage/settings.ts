@@ -75,6 +75,12 @@ export const settingsSchema = z.object({
     })
     .prefault({}),
   dice: z.object({ mode: z.enum(['digital', 'physical', 'per_player']).default('digital') }).prefault({}),
+  playtest: z
+    .object({
+      /** Record each game's playtest log (turn timings, problems, feedback) with the saved game. */
+      enabled: z.boolean().default(true),
+    })
+    .prefault({}),
   costs: z
     .object({
       /** USD per picture, replacing the built-in estimate (0 for a local service). */

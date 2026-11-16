@@ -1,8 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { parseNarration } from '@/ai/dm/narration';
 import { describeCheck } from '@/engine/rules';
 import type { RollReport } from '@/engine/types';
 import type { ChatEntry, Session } from '@/game/session';
+import type { PlaytestFeedback } from '@/game/playtest';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
@@ -17,6 +18,67 @@ interface Props {
   /** Sentence currently being read aloud: entry id and character range. */
   speaking?: { entryId: string; start: number; end: number } | null;
   onOpenImage?(imageKey: string): void;
+  /** Playtest reactions per DM message; null hides the feedback buttons. */
+  feedback?: Record<string, PlaytestFeedback> | null;
+  onFeedback?(entryId: string, rating: PlaytestFeedback['rating'] | null, note?: string): void;
+}
+
+/** Thumbs up/down (and an optional note) on a DM message, for the playtest log. */
+function FeedbackBar({ entryId, value, onFeedback }: { entryId: string; value: PlaytestFeedback | undefined; onFeedback: NonNullable<Props['onFeedback']> }) {
+  const [noting, setNoting] = useState(false);
+  const [note, setNote] = useState(value?.note ?? '');
+  return (
+    <div className={styles.feedback}>
+      <button
+        type="button"
+        className={cx(styles.feedbackBtn, value?.rating === 'up' && styles.feedbackOn)}
+        aria-pressed={value?.rating === 'up'}
+        aria-label="Good reply"
+        title="Good reply (playtest)"
+        onClick={() => {
+          setNoting(false);
+          onFeedback(entryId, value?.rating === 'up' ? null : 'up');
+        }}
+      >
+        <Icon name="thumbUp" size={14} />
+      </button>
+      <button
+        type="button"
+        className={cx(styles.feedbackBtn, value?.rating === 'down' && styles.feedbackOn)}
+        aria-pressed={value?.rating === 'down'}
+        aria-label="Problem with this reply"
+        title="Problem with this reply (playtest)"
+        onClick={() => {
+          if (value?.rating === 'down') {
+            setNoting(false);
+            onFeedback(entryId, null);
+          } else {
+            onFeedback(entryId, 'down', note);
+            setNoting(true);
+          }
+        }}
+      >
+        <Icon name="thumbDown" size={14} />
+      </button>
+      {noting ? (
+        <form
+          className={styles.feedbackForm}
+          onSubmit={(e) => {
+            e.preventDefault();
+            onFeedback(entryId, 'down', note);
+            setNoting(false);
+          }}
+        >
+          <input className={cx(controls.input, styles.feedbackInput)} aria-label="What went wrong? (optional)" placeholder="What went wrong? (optional)" value={note} onChange={(e) => setNote(e.target.value)} autoFocus />
+          <button type="submit" className={cx(controls.btn, controls.small)}>
+            Save note
+          </button>
+        </form>
+      ) : (
+        value?.rating === 'down' && value.note && <span className={styles.feedbackNote}>{value.note}</span>
+      )}
+    </div>
+  );
 }
 
 function outcome(report: RollReport): { label: string; tone: 'good' | 'bad' | 'crit' } {
@@ -116,7 +178,7 @@ function ImageEntry({ entry, onOpen }: { entry: Extract<ChatEntry, { kind: 'imag
   );
 }
 
-export function ChatLog({ session, busy, onRetry, speaking, onOpenImage }: Props) {
+export function ChatLog({ session, busy, onRetry, speaking, onOpenImage, feedback, onFeedback }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const last = session.chat.at(-1);
@@ -162,6 +224,7 @@ export function ChatLog({ session, busy, onRetry, speaking, onOpenImage }: Props
                 <DmAvatar />
                 <div className={cx(styles.bubble, styles.dm)}>
                   <DmText entry={entry} speaking={speaking} />
+                  {feedback && onFeedback && !(busy && entry === last) && <FeedbackBar entryId={entry.id} value={feedback[entry.id]} onFeedback={onFeedback} />}
                 </div>
               </div>
             );

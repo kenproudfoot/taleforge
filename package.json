@@ -17,6 +17,7 @@
     "build:index": "tsx scripts/build-campaign-index.ts",
     "docs:screenshots": "npm run build && tsx scripts/docs-screenshots.ts",
     "real-run": "npm run build && tsx scripts/real-run.ts",
+    "playtest:report": "tsx scripts/playtest-report.ts",
     "check": "npm run lint && npm run typecheck && npm run coverage && npm run validate:campaigns",
     "import:music": "tsx scripts/import-music.ts",
     "generate:audio": "tsx scripts/generate-audio.ts"

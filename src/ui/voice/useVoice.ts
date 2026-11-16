@@ -50,7 +50,10 @@ export function useNarration() {
         return { enabled: v.enabled, narratorVoice: v.narratorVoice, speed: v.speed, npcVoices: v.npcVoices, ...hints() };
       },
       onSpeaking: setSpeaking,
-      onError: setError,
+      onError: (message) => {
+        setError(message);
+        useGame.getState().logPlaytest({ type: 'voice_issue', at: Date.now(), message });
+      },
     });
   }
 

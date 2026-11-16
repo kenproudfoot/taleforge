@@ -1,4 +1,6 @@
 import type { LedgerEntry } from '@/ai/meter';
+import type { PlaytestData } from './playtest';
+import { EMPTY_PLAYTEST } from './playtest';
 import type { ChatMessage, TextProviderId, Usage } from '@/ai/providers/types';
 import { ZERO_USAGE } from '@/ai/providers/types';
 import type { ChipTone, GameState, RollReport } from '@/engine/types';
@@ -50,6 +52,8 @@ export interface Session {
   costUsd: number;
   /** Every metered service call, for the usage panel and the CSV export. */
   ledger: LedgerEntry[];
+  /** Playtest log: turn timings, tool calls, problems and the table's feedback (see playtest.ts). */
+  playtest: PlaytestData;
   images: SessionImages;
   recap: string | null;
   /** Lower-cased NPC name -> voice id chosen by the players in the roster card. */
@@ -116,6 +120,7 @@ export function createSession(input: {
     usage: { dm: ZERO_USAGE, helper: ZERO_USAGE },
     costUsd: 0,
     ledger: [],
+    playtest: EMPTY_PLAYTEST,
     images: { portraits: {}, scenes: {}, party: null, current: null, cards: {}, generated: 0 },
     recap: null,
     voiceCast: {},

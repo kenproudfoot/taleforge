@@ -17,6 +17,7 @@ commit at the end of each phase, only with tests green).
 | `npm run check` | lint + typecheck + coverage + campaign validation (run before every commit) |
 | `npm run docs:screenshots` | Builds, plays a scripted session in Playwright and writes `docs/images/` |
 | `npm run real-run -- [--turns 12] [--max-usd 1.5] [--campaign <id>] [--quality low\|medium\|high] [--no-images] [--no-voice] [--mock]` | Plays a short game against the REAL providers with `.env.local` keys (costs money; `--mock` is a free rehearsal). Writes usage CSV, transcript and screenshots to `real-runs/` (gitignored) |
+| `npm run playtest:report [-- --out r.md]` | Summarizes the playtest logs in `playtests/` (downloaded from Pause → Playtest notes, or written by `npm run dev`; gitignored): waits, errors, rejected tools, likely skipped rolls, 👎 with context and notes, survey |
 | `npm run generate:audio [-- <id>]` | Re-renders the code-composed music and SFX (macOS: uses `afconvert`) |
 | `npm run import:music -- <file> <id>` | Converts an owner-supplied track to AAC in `public/content/audio/music/` (macOS) |
 

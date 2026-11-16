@@ -26,6 +26,8 @@ export interface DirectorDeps {
   composite(image: Blob, name: string, subtitle: string): Promise<Blob | null>;
   concurrency: number;
   onError?(message: string): void;
+  /** Reports each painting attempt and how long it took (for the playtest log). */
+  onPainted?(kind: string, ms: number, ok: boolean, error?: string): void;
   /** Injected in tests to make retries instant. */
   sleep?(ms: number, signal: AbortSignal): Promise<void>;
 }
@@ -71,7 +73,15 @@ export class ArtDirector {
         const brief = basePrompt(subject, this.deps.pack);
         const prompt = await this.deps.writePrompt(brief).catch(() => brief);
         const refs = (await Promise.all(references.map((k) => this.deps.cache.get(k)))).filter((b): b is Blob => b !== null);
-        const blob = await provider.generate({ prompt: prompt || brief, size, references: refs.length ? refs : undefined, signal, label: subject.kind });
+        const started = Date.now();
+        let blob: Blob;
+        try {
+          blob = await provider.generate({ prompt: prompt || brief, size, references: refs.length ? refs : undefined, signal, label: subject.kind });
+        } catch (e) {
+          if (!signal.aborted) this.deps.onPainted?.(subject.kind, Date.now() - started, false, e instanceof Error ? e.message : String(e));
+          throw e;
+        }
+        this.deps.onPainted?.(subject.kind, Date.now() - started, true);
         await this.deps.cache.put(key, blob, { kind: subject.kind, prompt: prompt || brief, provider: id, model, size });
         this.patchImages((images) => ({ ...images, generated: images.generated + 1 }));
         return key;

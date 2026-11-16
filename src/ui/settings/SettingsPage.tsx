@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { CostsSection } from './CostsSection';
+import { PlaytestSection } from './PlaytestSection';
 import { DataSection, UnlockPanel } from './DataSection';
 import styles from './settings.module.css';
 import { SETTINGS_STEPS } from './steps';
@@ -23,6 +24,7 @@ export function SettingsPage() {
         <Component key={id} />
       ))}
       <CostsSection />
+      <PlaytestSection />
       <DataSection />
     </div>
   );

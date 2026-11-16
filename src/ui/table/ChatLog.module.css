@@ -249,3 +249,50 @@
     max-width: 96%;
   }
 }
+
+/* Playtest reactions under a DM message: quiet until used. */
+.feedback {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: -2px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+}
+.feedbackBtn {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  background: none;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.feedbackBtn:hover,
+.feedbackBtn:focus-visible {
+  color: var(--text);
+  border-color: var(--line-strong);
+}
+.feedbackOn {
+  color: var(--accent-strong);
+  border-color: var(--accent);
+}
+.feedbackForm {
+  display: flex;
+  flex: 1 1 260px;
+  gap: 6px;
+  min-width: 0;
+}
+.feedbackInput {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  font-size: 13px;
+}
+.feedbackNote {
+  color: var(--text-dim);
+  font-style: italic;
+}

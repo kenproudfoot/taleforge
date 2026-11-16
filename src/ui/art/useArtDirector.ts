@@ -38,6 +38,7 @@ export function useArtDirector(): { painting: boolean; error: string | null; dis
       composite: (blob, name, subtitle) => compositePlaque(blob, name, subtitle, { accent: theme.accent, background: theme.background, font: `"${theme.display_font}", Georgia, serif` }),
       concurrency: image.concurrency,
       onError: setError,
+      onPainted: (kind, ms, ok, error) => useGame.getState().logPlaytest({ type: 'picture', at: Date.now(), kind, ms, ok, ...(error ? { error } : {}) }),
     });
     const update = () => setPainting(director.paintingCurrent());
     const offQueue = director.queue.subscribe(() => {

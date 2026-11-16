@@ -8,6 +8,21 @@ tabletop adventure in under an hour. You answer by voice or keyboard and roll re
 
 ![The game table: narration on the left, the roster, scene and game state on the right](docs/images/game-table.png)
 
+## Playtesting
+
+While you play, TaleForge keeps a private **playtest log** of each game: what was said, how long each reply
+took, the rolls and tools the Dungeon Master used, anything that went wrong (errors, rejected tool calls,
+voice or picture failures), and your reactions:
+
+- **👍 / 👎 under any Dungeon Master message.** 👎 asks for an optional note ("should have asked for a roll").
+- **Pause → Playtest notes** (also offered when a game ends): how fun it was, the pace, and anything confusing.
+
+The log stays in your browser with the saved game. **Pause → Playtest notes → Download playtest log** (or
+Settings → Playtesting) saves it as a JSON file; put it in this repo's `playtests/` folder (never committed) and
+`npm run playtest:report` turns the logs into one readable report (`-- --out report.md` to save it). Running
+the game from this repo (`npm run dev`) writes the logs to `playtests/` by itself. Turn logging off under
+**Settings → Playtesting**.
+
 ## Features
 
 - **A Dungeon Master who plays fair.** The AI narrates and decides what happens; a rules engine does every

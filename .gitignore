@@ -19,3 +19,6 @@ test-results/
 
 # Real-provider test runs (npm run real-run): transcripts and usage logs
 real-runs/
+
+# Playtest logs written by the local server (what players said and did; never committed)
+playtests/
