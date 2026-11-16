@@ -15,12 +15,12 @@ describe('bundled audio catalogue', () => {
   it('every catalogue file exists and every audio file is in the catalogue', () => {
     const listed = new Set([...catalog.tracks.map((t) => t.file), ...Object.values(catalog.sfx).flat()]);
     for (const file of listed) expect(existsSync(join(AUDIO, file)), file).toBe(true);
-    const onDisk = ['music', 'sfx'].flatMap((d) => readdirSync(join(AUDIO, d)).map((f) => `${d}/${f}`));
+    const onDisk = ['music', 'sfx'].flatMap((d) => readdirSync(join(AUDIO, d)).filter((f) => !f.startsWith('.')).map((f) => `${d}/${f}`));
     expect(onDisk.sort()).toEqual([...listed].sort());
   });
   it('has no unlicensed files: LICENSES.md records the provenance of every file', () => {
     const licenses = readFileSync(join(AUDIO, 'LICENSES.md'), 'utf8');
-    const onDisk = ['music', 'sfx'].flatMap((d) => readdirSync(join(AUDIO, d)).map((f) => `${d}/${f}`));
+    const onDisk = ['music', 'sfx'].flatMap((d) => readdirSync(join(AUDIO, d)).filter((f) => !f.startsWith('.')).map((f) => `${d}/${f}`));
     for (const file of onDisk) expect(licenses, file).toContain(file);
   });
   it('every default family covers every mood with a real track', () => {
