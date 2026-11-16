@@ -73,9 +73,17 @@
 @media (max-width: 600px) {
   .header {
     padding: 0 var(--s-4);
+    gap: var(--s-2);
   }
   .navText {
     display: none;
+  }
+  /* With a Back button in the header there is no room for the wordmark: the logo stays. */
+  .brand span {
+    display: none;
+  }
+  .nav {
+    gap: 2px;
   }
 }
 
