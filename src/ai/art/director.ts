@@ -1,14 +1,17 @@
 import type { CampaignPack } from '@/content/pack';
-import type { Archetype } from '@/engine/types';
+import { shortName } from '@/engine/names';
+import type { Archetype, PartyMember } from '@/engine/types';
 import { newId } from '@/game/session';
 import type { Session } from '@/game/session';
 import type { GameEvent } from '@/game/store';
 import { ProviderError } from '../providers/types';
 import { imageKey } from './cache';
-import { basePrompt, subjectSignature } from './prompts';
+import { appearanceLock, basePrompt, subjectSignature } from './prompts';
 import type { ArtSubject } from './prompts';
 import type { ImageProvider, ImageSize } from './providers';
 import { JobQueue, PRIORITY } from './queue';
+
+const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export interface DirectorDeps {
   provider: { provider: ImageProvider; id: string; model: string };
@@ -71,18 +74,23 @@ export class ArtDirector {
       run: async (signal) => {
         if (await this.deps.cache.get(key)) return key;
         const brief = basePrompt(subject, this.deps.pack);
-        const prompt = await this.deps.writePrompt(brief).catch(() => brief);
-        const refs = (await Promise.all(references.map((k) => this.deps.cache.get(k)))).filter((b): b is Blob => b !== null);
+        const written = await this.deps.writePrompt(brief).catch(() => brief);
+        const blobs = await Promise.all(references.map((k) => this.deps.cache.get(k)));
+        // References line up with the first characters of the subject; stop at the first missing one.
+        const missing = blobs.indexOf(null);
+        const refs = (missing < 0 ? blobs : blobs.slice(0, missing)) as Blob[];
+        // The look of each character is appended after the rewrite, word for word, so it can never be dropped.
+        const prompt = [written || brief, appearanceLock(subject, refs.length)].filter(Boolean).join('\n\n');
         const started = Date.now();
         let blob: Blob;
         try {
-          blob = await provider.generate({ prompt: prompt || brief, size, references: refs.length ? refs : undefined, signal, label: subject.kind });
+          blob = await provider.generate({ prompt, size, references: refs.length ? refs : undefined, signal, label: subject.kind });
         } catch (e) {
           if (!signal.aborted) this.deps.onPainted?.(subject.kind, Date.now() - started, false, e instanceof Error ? e.message : String(e));
           throw e;
         }
         this.deps.onPainted?.(subject.kind, Date.now() - started, true);
-        await this.deps.cache.put(key, blob, { kind: subject.kind, prompt: prompt || brief, provider: id, model, size });
+        await this.deps.cache.put(key, blob, { kind: subject.kind, prompt, provider: id, model, size });
         this.patchImages((images) => ({ ...images, generated: images.generated + 1 }));
         return key;
       },
@@ -189,7 +197,11 @@ export class ArtDirector {
   private moment(description: string, includeParty: boolean): void {
     const session = this.session();
     if (!session) return;
-    const members = includeParty ? session.state.party.filter((p) => p.status !== 'out') : [];
+    // Party members the DM named are in the picture even when it did not ask for the whole party.
+    const named = (m: PartyMember) => new RegExp(`(^|[^\\p{L}])${escapeRegExp(shortName(m.name))}(?![\\p{L}])`, 'iu').test(description);
+    const present = session.state.party.filter((p) => p.status !== 'out' && (includeParty || named(p)));
+    // Those with a portrait come first, so the reference images line up with the first characters.
+    const members = [...present.filter((m) => session.images.portraits[m.id]), ...present.filter((m) => !session.images.portraits[m.id])];
     const refs = members.map((m) => session.images.portraits[m.id]).filter((k): k is string => !!k);
     const location = this.location(session.state.locationId);
     this.paint({ kind: 'moment', description, members, locationName: location?.name ?? 'the scene' }, 'landscape', PRIORITY.moment, refs)

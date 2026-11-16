@@ -28,6 +28,45 @@ function describeMember(m: PartyMember, artHint = ''): string {
     .join(', ');
 }
 
+/** What a character looks like, in the player's own words: the details every picture of them must show. */
+export function lookOf(m: PartyMember): string {
+  const p = m.profile;
+  return [
+    [p.age, p.build, p.pronouns && `(${p.pronouns})`].filter(Boolean).join(' '),
+    p.features,
+    p.strikingFeature,
+    p.outfit && `wearing ${p.outfit}`,
+    p.signatureItem && `carrying ${p.signatureItem}`,
+  ]
+    .filter(Boolean)
+    .join('; ');
+}
+
+function membersOf(subject: ArtSubject): PartyMember[] {
+  if (subject.kind === 'portrait') return [subject.member];
+  if (subject.kind === 'party' || subject.kind === 'moment') return subject.members;
+  return [];
+}
+
+/**
+ * Appended to every prompt that shows party members, after the helper model has written it, so a rewrite can
+ * never drop a detail such as "purple hair" or "clown makeup". The first `references` characters each have a
+ * reference image (their portrait), sent in the same order.
+ */
+export function appearanceLock(subject: ArtSubject, references = 0): string {
+  const members = membersOf(subject);
+  if (members.length === 0) return '';
+  const one = members.length === 1;
+  const lines = members.map((m, i) => `${one ? 'The character' : `Character ${i + 1}`}${i < references ? ` (reference image ${i + 1})` : ''}: ${lookOf(m)}.`);
+  return [
+    `${one ? 'The character must look exactly like this' : 'Each character must look exactly like this'}, with every detail clearly visible (hair colour, face, makeup, skin, clothing and materials):`,
+    ...lines,
+    references > 0 && `Match each referenced character's face, hair, makeup and outfit to their reference image exactly; only pose, expression and lighting may change.`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+}
+
 /**
  * A complete, deterministic prompt from the structured subject. Used directly when no helper model is
  * available, and given to the helper as the brief otherwise.
@@ -56,4 +95,4 @@ export function subjectSignature(subject: ArtSubject, pack: CampaignPack): strin
 }
 
 export const PROMPT_WRITER_SYSTEM =
-  'You write prompts for an image model that illustrates a tabletop role-playing game. Rewrite the brief as one vivid, concrete paragraph of at most 110 words: subject, composition, lighting, palette and the given art style. Keep every factual detail of the brief (names are for you only: describe people by appearance, never by name). Never ask for text or lettering in the image. Reply with the prompt only.';
+  'You write prompts for an image model that illustrates a tabletop role-playing game. Rewrite the brief as one vivid, concrete paragraph of at most 140 words: subject, composition, lighting, palette and the given art style. Keep every factual detail of the brief, and copy each person\'s hair, face, makeup, skin and clothing words exactly as given, never generalized (names are for you only: describe people by appearance, never by name). Never ask for text or lettering in the image. Reply with the prompt only.';

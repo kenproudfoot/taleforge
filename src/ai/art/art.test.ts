@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createGame } from '@/engine/state';
+import type { PartyMember } from '@/engine/types';
 import { buildParty } from '@/game/characters';
 import { createSession } from '@/game/session';
 import type { Session } from '@/game/session';
@@ -11,7 +12,7 @@ import { ProviderError } from '../providers/types';
 import { getCachedImage, hasCachedImage, hashKey, imageKey, putCachedImage } from './cache';
 import { ArtDirector } from './director';
 import { plaqueLayout } from './plaque';
-import { basePrompt, subjectSignature } from './prompts';
+import { appearanceLock, basePrompt, lookOf, subjectSignature } from './prompts';
 import {
   base64ToBlob,
   blobToBase64,
@@ -270,6 +271,24 @@ describe('prompts and plaque', () => {
     expect(basePrompt({ kind: 'moment', description: 'the vault opens', members: [], locationName: 'the reliquary' }, world.pack)).toContain('the vault opens');
     expect(subjectSignature({ kind: 'scene', location: world.pack.world.locations[1]! }, world.pack)).toContain('the-sunken-crown|');
   });
+  it('locks every character’s look into the prompt, word for word, and maps reference images', () => {
+    const s = session();
+    const [lyra, brann] = s.state.party as [PartyMember, PartyMember];
+    const custom: PartyMember = { ...brann, profile: { ...brann.profile, features: 'purple hair, green eyes', strikingFeature: 'clown makeup face', outfit: 'black leather' } };
+    expect(lookOf(custom)).toContain('purple hair, green eyes; clown makeup face; wearing black leather');
+    const one = appearanceLock({ kind: 'portrait', member: custom, artHint: '' });
+    expect(one).toContain('The character must look exactly like this');
+    expect(one).toContain('purple hair');
+    expect(one).not.toContain('reference image');
+    const group = appearanceLock({ kind: 'party', members: [lyra, custom], location: world.pack.world.locations[0]! }, 1);
+    expect(group).toContain(`Character 1 (reference image 1): ${lookOf(lyra)}`);
+    expect(group).toContain('Character 2: ');
+    expect(group).toContain('clown makeup face');
+    expect(group).toContain('Match each referenced character');
+    // Names stay out of the image prompt; places and NPCs get no lock.
+    expect(group).not.toContain(custom.name);
+    expect(appearanceLock({ kind: 'scene', location: world.pack.world.locations[1]! })).toBe('');
+  });
   it('lays the plaque out inside the image, scaling the name to fit', () => {
     for (const [w, h] of [
       [1024, 1536],
@@ -350,6 +369,12 @@ describe('ArtDirector', () => {
     const partyRequest = t.requests.find((r) => r.references?.length === 2)!;
     expect(partyRequest.size).toBe('landscape');
     expect(partyRequest.prompt).toMatch(/^polished: /);
+    // The helper's rewrite is followed by each character's look, tied to their portrait.
+    const [lyra, brann] = t.session.state.party as [PartyMember, PartyMember];
+    expect(partyRequest.prompt).toContain(`Character 1 (reference image 1): ${lookOf(lyra)}`);
+    expect(partyRequest.prompt).toContain(`Character 2 (reference image 2): ${lookOf(brann)}`);
+    expect(t.requests.filter((r) => r.size === 'portrait').every((r) => r.prompt.includes('The character must look exactly like this'))).toBe(true);
+    expect(t.requests.find((r) => r.size === 'landscape' && !r.references)?.prompt).not.toContain('must look exactly');
     expect(t.session.chat.at(-1)).toMatchObject({ kind: 'image', caption: 'The party, together at last' });
     expect(images.generated).toBe(t.requests.length);
     expect(t.director.paintingCurrent()).toBe(false);
@@ -396,6 +421,12 @@ describe('ArtDirector', () => {
     await flush(20);
     expect(t.session.chat.at(-1)).toMatchObject({ kind: 'image', caption: 'the vault door opens' });
     expect(t.session.images.current).toBe((t.session.chat.at(-1) as { imageKey: string }).imageKey);
+    expect(t.requests.at(-1)!.prompt).not.toContain('must look exactly');
+    // A moment that names a party member shows them, in their own look, even without includeParty.
+    t.director.handle({ type: 'image_request', description: 'Brann hauls the chain as the gate groans', includeParty: false });
+    await flush(20);
+    expect(t.requests.at(-1)!.prompt).toContain(lookOf(t.session.state.party[1]!));
+    expect(t.requests.at(-1)!.prompt).not.toContain(lookOf(t.session.state.party[0]!));
     t.director.handle({ type: 'act_advanced', actIndex: 2 });
     await flush(20);
     expect(t.session.images.portraits['drowned-king']).toBeDefined();
