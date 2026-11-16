@@ -76,7 +76,7 @@ describe('system prompt', () => {
     expect(text).toContain('Reveal when: The party reads the steward\'s ledger');
   });
   it('describes each party member, including companions and re-skinned abilities', () => {
-    expect(text).toContain('### Lyra Vance (Healer), played by Sam');
+    expect(text).toMatch(/### Lyra Vance \[id [^\]]+\] \(Healer\), played by Sam/);
     expect(text).toContain('Signature ability (once per act): Mending Hands.');
     expect(text).toContain('Companion: Biscuit, a scruffy terrier');
     expect(text).toContain('Signature item: A notched war-axe');
@@ -168,7 +168,7 @@ describe('runDmTurn', () => {
     expect(h.session.state.turn).toBe(1);
     const req = h.provider.requests[0]!;
     expect(req.tools).toBe(DM_TOOLS);
-    expect(req.tools).toHaveLength(19);
+    expect(req.tools).toHaveLength(20);
     expect(req.effort).toBe('low');
     expect(req.messages[0]!.content[0]).toMatchObject({ text: expect.stringContaining('<game_state>') });
     expect(h.session.history[0]!.content).toHaveLength(2);
@@ -420,5 +420,20 @@ describe('characters and sessions', () => {
     expect(usesPhysicalDice({ diceMode: 'per_player', playerDice: { a: 'physical' } }, 'a')).toBe(true);
     expect(usesPhysicalDice({ diceMode: 'per_player', playerDice: {} }, 'b')).toBe(false);
     expect([formatClock(0), formatClock(61_000), formatClock(23 * 60_000 + 41_000)]).toEqual(['0:00', '1:01', '23:41']);
+  });
+});
+
+describe('handoffStart', () => {
+  it('finds the closing question: the last paragraph, or the final sentence', async () => {
+    const { handoffStart } = await import('./narration');
+    const two = 'You slip and fall.\n\nEddie, do you fight or run?';
+    expect(two.slice(handoffStart(two))).toBe('Eddie, do you fight or run?');
+    const one = 'The door creaks open. What do you do, Lyra?';
+    expect(one.slice(handoffStart(one))).toBe('What do you do, Lyra?');
+    expect(handoffStart('The door creaks open.')).toBe(-1);
+    expect(handoffStart('Nobody moves. «Ruby: You lost, honey?»')).toBe(-1);
+    expect(handoffStart('What?')).toBe(-1);
+    // A sentence end inside a quoted line does not split it.
+    expect(handoffStart('«Ruby: Go. Now!» she says, and what do you do?')).toBe(-1);
   });
 });

@@ -42,7 +42,7 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   await page.getByLabel('Player name').fill('Jo');
   await page.getByText('Rogue', { exact: true }).click();
   await page.getByLabel('Character name').fill('Mags');
-  await page.locator('label[title="Dexterity"]').click();
+  await page.locator('label[title^="DEX:"]').click();
   await page.getByRole('button', { name: /Confirm and review party/ }).click();
   await page.getByRole('button', { name: /Begin the adventure/ }).click();
 
@@ -50,6 +50,11 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   await expect(chat).toContainText('Mags, what do you do?');
   // Portrait, party picture and the opening scene arrive without blocking the story.
   await expect(chat.getByRole('img', { name: 'The party, together at last' })).toBeVisible();
+  // A picture in the chat opens full size.
+  await chat.getByRole('button', { name: 'Open image: The party, together at last' }).click();
+  await expect(page.getByRole('dialog', { name: 'The party, together at last' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: 'The party, together at last' })).toBeHidden();
   await expect(page.getByRole('img', { name: 'Scene: Brinewick Shingle' })).toBeVisible();
   await expect(page.getByRole('button', { name: /Mags, Rogue/ }).locator('img')).toBeVisible();
   await expect(page.getByRole('button', { name: /Elder Maren Holt, Ally/ }).locator('img')).toBeVisible();

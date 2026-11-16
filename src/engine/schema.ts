@@ -114,7 +114,7 @@ const pendingRoll = z.object({
   targetName: z.string().nullable(),
   reason: z.string(),
   mode: rollMode,
-  purpose: z.enum(['normal', 'stabilize']),
+  purpose: z.enum(['normal', 'stabilize', 'dice']),
   stage: z.enum(['main', 'heroic', 'damage']),
   die: dieSize,
   diceCount: z.number(),

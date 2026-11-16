@@ -6,7 +6,14 @@ export interface SpeechUnit {
   text: string;
   /** NPC name for «Name: line» speech (or a guessed speaker for a “quoted” line), or null for the narrator. */
   speaker: string | null;
+  /** Silence to leave before this unit, in ms: a paragraph break, or the DM turning to address a character. */
+  pause?: number;
 }
+
+/** A beat of silence at a paragraph break. */
+export const PARAGRAPH_PAUSE_MS = 450;
+/** A longer beat before the DM turns to a character ("Eddie, do you…?"), so it doesn't run on from the narration. */
+export const HANDOFF_PAUSE_MS = 750;
 
 const ABBREVIATIONS = new Set(['mr', 'mrs', 'ms', 'dr', 'st', 'sr', 'jr', 'vs', 'etc', 'prof', 'capt', 'sgt', 'lt', 'col', 'gen', 'mt', 'no']);
 const SENTENCE_END = /[.!?…]+["'”’)\]]*/g;
@@ -95,13 +102,23 @@ function nextQuote(text: string, from: number): number {
  */
 export function speechUnits(text: string, final: boolean, names: string[] = []): SpeechUnit[] {
   const units: SpeechUnit[] = [];
+  const firstNames = [...new Set(names.flatMap((n) => [n, n.split(/\s+/)[0]!]).filter((n) => n.length >= 2))];
   let pos = 0;
   const push = (start: number, end: number, speaker: string | null, spoken?: string) => {
     const raw = text.slice(start, end);
     const lead = raw.length - raw.trimStart().length;
     const trimmed = raw.trim();
     const say = cleanForSpeech(spoken ?? trimmed);
-    if (say && /[\p{L}\p{N}]/u.test(say)) units.push({ start: start + lead, end: start + lead + trimmed.length, text: say, speaker });
+    if (!say || !/[\p{L}\p{N}]/u.test(say)) return;
+    const prev = units.at(-1);
+    const unit: SpeechUnit = { start: start + lead, end: start + lead + trimmed.length, text: say, speaker };
+    if (prev) {
+      const gap = text.slice(prev.end, unit.start);
+      const addressed = speaker === null && firstNames.some((n) => say.startsWith(`${n},`) || say.startsWith(`${n} —`));
+      const pause = Math.max(addressed ? HANDOFF_PAUSE_MS : 0, gap.includes('\n\n') ? PARAGRAPH_PAUSE_MS : 0);
+      if (pause) unit.pause = pause;
+    }
+    units.push(unit);
   };
 
   while (pos < text.length) {

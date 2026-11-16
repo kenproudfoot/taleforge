@@ -2,12 +2,12 @@ import { z } from 'zod';
 import { parseDice, rollDice } from './dice';
 import { damageParty, damageRoster, healParty, healRoster, recoverForNewAct } from './health';
 import type { Rng } from './rng';
-import { requestRoll, summarizeReport } from './rolls';
-import { findCombatant, findPartyMember, findRosterEntry, rosterEntryFromTemplate, slugify } from './state';
+import { requestDice, requestRoll, summarizeReport } from './rolls';
+import { cleanName, findCombatant, findPartyMember, findRosterEntry, fuzzyMatch, isUnreadableName, rosterEntryFromTemplate, slugify } from './state';
 import { MOODS, STATS } from './types';
-import type { Effect, EngineCampaign, GameState, PendingRoll, RollReport } from './types';
+import type { CastTemplate, Effect, EngineCampaign, GameState, PartyMember, PendingRoll, RollReport } from './types';
 
-const name = z.string().min(1).max(80);
+const name = z.string().min(1).max(80).describe('Character id (preferred, e.g. pc-ada or a cast id) or exact name.');
 const amount = z.union([z.number().int().min(0).max(999), z.string().min(1).max(12)]);
 
 /** The DM's tools: the only way the model can change game state. Descriptions are sent to the model. */
@@ -22,6 +22,11 @@ export const TOOL_SCHEMAS = {
     advantage: z.enum(['advantage', 'disadvantage', 'none']).optional(),
     purpose: z.enum(['normal', 'stabilize']).optional().describe('"stabilize" for a WIS DC 10 check on a Downed ally.'),
     attack: z.string().max(60).optional().describe('For NPC attackers: the name of the attack to use.'),
+  }),
+  request_dice: z.object({
+    character: name.optional().describe('Party member who throws the dice. Omit for a roll the Dungeon Master makes (the engine rolls it).'),
+    dice: z.string().min(3).max(12).describe('Dice notation with d4, d6, d8, d10, d12 or d20, 1 to 4 dice, e.g. "1d6", "2d4", "1d8+1".'),
+    reason: z.string().min(1).max(160).describe('What the number decides, shown to the player, e.g. "how many guards come running".'),
   }),
   apply_damage: z.object({
     target: name,
@@ -94,6 +99,8 @@ export const TOOL_NAMES = Object.keys(TOOL_SCHEMAS) as ToolName[];
 export const TOOL_DESCRIPTIONS: Record<ToolName, string> = {
   request_roll:
     'Ask for a dice roll. Required before resolving any attack by a party member (kind "attack") and any risky or uncertain action: call it instead of narrating the outcome, then narrate from the result. Never invent roll results. For a party member the game pauses until the player rolls; the result comes back as this tool\'s result. Attack hits roll and apply damage automatically.',
+  request_dice:
+    'Have a player throw dice other than a d20 check, for luck and variety: a d6 for how many guards come running, a d8 on a table you describe, 2d4 for how long the fire burns, a d4 to see which door. There is no success or failure: you decide what the total means (say the stakes before the roll), then narrate from it. Use it a few times per session; risky actions still use request_roll.',
   apply_damage: 'Deal damage that does not come from an attack roll.',
   heal: 'Restore hit points. Also gets a Downed character back up.',
   add_condition: 'Add a short condition (e.g. Poisoned, Frightened, Hidden) to a character.',
@@ -146,6 +153,45 @@ function rollAmount(value: number | string, rng: Rng): number | null {
   return n ? rollDice(n, rng).total : null;
 }
 
+/** The cast template a name or id refers to, allowing small typos. */
+function castFor(campaign: EngineCampaign, ref: string): CastTemplate | undefined {
+  const r = slugify(ref);
+  return campaign.cast.find((c) => c.id === r || slugify(c.name) === r) ?? fuzzyMatch(campaign.cast, ref);
+}
+
+/**
+ * Models often target a cast member they are narrating without calling roster_add first. When `ref` is
+ * nobody known but names a cast member, bring that member into the scene (in `next`) and say so.
+ */
+function bringCastIfNamed(next: GameState, campaign: EngineCampaign, ref: string | undefined, effects: Effect[]): void {
+  if (!ref || findCombatant(next, ref)) return;
+  const template = castFor(campaign, ref);
+  if (!template) return;
+  const existing = next.roster.find((e) => e.id === template.id);
+  if (existing) {
+    existing.present = true;
+    if (existing.status !== 'defeated') existing.status = 'active';
+    effects.push({ type: 'roster_added', id: existing.id });
+    return;
+  }
+  const entry = rosterEntryFromTemplate(template);
+  next.roster.push(entry);
+  effects.push({ type: 'roster_added', id: entry.id }, { type: 'chip', text: `${entry.name} enters the scene`, tone: 'info' });
+}
+
+/** A party member by reference; a garbled reference resolves only when there is exactly one member. */
+function partyRef(state: GameState, ref: string): PartyMember | undefined {
+  const found = findPartyMember(state, ref);
+  if (found) return found;
+  if (isUnreadableName(ref) && state.party.length === 1) return state.party[0];
+  return undefined;
+}
+
+function noPartyMember(state: GameState, ref: string): string {
+  const shown = isUnreadableName(ref) ? 'that (unreadable) name' : `"${cleanName(ref)}"`;
+  return `No party member called ${shown}. Use one of these ids: ${state.party.map((p) => `${p.id} (${p.name})`).join(', ')}.`;
+}
+
 /**
  * Validates and applies one DM tool call. Never throws on bad model input:
  * invalid calls return `ok: false` with an error the model can read and correct.
@@ -169,7 +215,21 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
   switch (tool) {
     case 'request_roll': {
       const input = parsed.data as z.infer<typeof TOOL_SCHEMAS.request_roll>;
-      const r = requestRoll(state, input, rng);
+      bringCastIfNamed(next, campaign, input.character, effects);
+      bringCastIfNamed(next, campaign, input.target, effects);
+      const r = requestRoll(next, input, rng);
+      if (!r.ok) return fail(state, r.error);
+      const all = [...effects, ...r.effects];
+      if (r.deferred) {
+        return { state: r.state, ok: true, result: { status: 'waiting for the player to roll' }, effects: all, pending: r.pending };
+      }
+      return { state: r.state, ok: true, result: summarizeReport(r.report), effects: all, report: r.report };
+    }
+
+    case 'request_dice': {
+      const input = parsed.data as z.infer<typeof TOOL_SCHEMAS.request_dice>;
+      // Anyone who is not a party member (an NPC, or nobody) has the engine roll for them.
+      const r = requestDice(state, { ...input, character: input.character ? partyRef(state, input.character)?.id : undefined }, rng);
       if (!r.ok) return fail(state, r.error);
       if (r.deferred) {
         return { state: r.state, ok: true, result: { status: 'waiting for the player to roll' }, effects: r.effects, pending: r.pending };
@@ -180,6 +240,7 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
     case 'apply_damage':
     case 'heal': {
       const input = parsed.data as z.infer<typeof TOOL_SCHEMAS.apply_damage>;
+      bringCastIfNamed(next, campaign, input.target, effects);
       const target = findCombatant(next, input.target);
       if (!target) return fail(state, `No one called "${input.target}" is known.`);
       const value = rollAmount(input.amount, rng);
@@ -197,6 +258,7 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
     case 'add_condition':
     case 'remove_condition': {
       const input = parsed.data as z.infer<typeof TOOL_SCHEMAS.add_condition>;
+      bringCastIfNamed(next, campaign, input.target, effects);
       const target = findCombatant(next, input.target);
       if (!target) return fail(state, `No one called "${input.target}" is known.`);
       const who = target.kind === 'party' ? target.member : target.entry;
@@ -214,7 +276,7 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
 
     case 'roster_add': {
       const input = parsed.data as z.infer<typeof TOOL_SCHEMAS.roster_add>;
-      const template = input.id ? campaign.cast.find((c) => c.id === input.id) : undefined;
+      const template = (input.id ? castFor(campaign, input.id) : undefined) ?? (input.name ? castFor(campaign, input.name) : undefined);
       if (input.id && !template && !input.name) {
         return fail(state, `No cast entry "${input.id}". Cast ids: ${campaign.cast.map((c) => c.id).join(', ')}. To improvise, give a name.`);
       }
@@ -341,8 +403,8 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
       const input = parsed.data as z.infer<typeof TOOL_SCHEMAS.give_item>;
       let holder = 'party';
       if (input.to && input.to.toLowerCase() !== 'party') {
-        const member = findPartyMember(next, input.to);
-        if (!member) return fail(state, `No party member called "${input.to}".`);
+        const member = partyRef(next, input.to);
+        if (!member) return fail(state, noPartyMember(state, input.to));
         holder = member.id;
       }
       next.items.push({ name: input.name, description: input.description ?? '', holder });
@@ -384,8 +446,8 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
 
     case 'use_signature': {
       const input = parsed.data as z.infer<typeof TOOL_SCHEMAS.use_signature>;
-      const member = findPartyMember(next, input.character);
-      if (!member) return fail(state, `No party member called "${input.character}".`);
+      const member = partyRef(next, input.character);
+      if (!member) return fail(state, noPartyMember(state, input.character));
       if (member.status !== 'ok') return fail(state, `${member.name} is ${member.status} and cannot act.`);
       if (member.signatureUsedInAct === next.actIndex) {
         return fail(state, `${member.name} has already used ${member.signature.name} this act.`);
@@ -396,8 +458,8 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
       chip(`${member.name} uses ${sig.name}`, 'good');
       const effect = sig.effect;
       if (effect.type === 'heal') {
-        const target = input.target ? findPartyMember(next, input.target) : member;
-        if (!target) return fail(state, `No party member called "${input.target}".`);
+        const target = input.target ? partyRef(next, input.target) : member;
+        if (!target) return fail(state, noPartyMember(state, input.target ?? ''));
         const lines = healParty(target, rollDice(effect.dice, rng).total, campaign);
         for (const line of lines) chip(line, 'good');
         result.consequences = lines;
@@ -418,8 +480,8 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
 
     case 'award_heroic_point': {
       const input = parsed.data as z.infer<typeof TOOL_SCHEMAS.award_heroic_point>;
-      const member = findPartyMember(next, input.character);
-      if (!member) return fail(state, `No party member called "${input.character}".`);
+      const member = partyRef(next, input.character);
+      if (!member) return fail(state, noPartyMember(state, input.character));
       if (member.heroicPoints >= 3) return done({ heroic_points: member.heroicPoints, note: 'already at the maximum of 3' });
       member.heroicPoints += 1;
       chip(`${member.name} earns a Heroic Point`, 'good');
@@ -440,8 +502,8 @@ export function applyToolCall(state: GameState, campaign: EngineCampaign, call: 
         return done({ resource: def.id, value, max: def.max, ...(value === 0 ? { warning: `${def.name} has run out` } : {}) });
       }
       if (!input.target) return fail(state, `${def.name} is tracked per character: give a target.`);
-      const member = findPartyMember(next, input.target);
-      if (!member) return fail(state, `No party member called "${input.target}".`);
+      const member = partyRef(next, input.target);
+      if (!member) return fail(state, noPartyMember(state, input.target));
       const value = clamp((member.resources[def.id] ?? def.start) + input.delta);
       member.resources[def.id] = value;
       chip(`${member.name} ${def.name}: ${value}/${def.max}`, input.delta < 0 ? 'bad' : 'good');

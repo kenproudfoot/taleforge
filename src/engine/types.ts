@@ -165,7 +165,8 @@ export interface PendingRoll {
   targetName: string | null;
   reason: string;
   mode: RollMode;
-  purpose: 'normal' | 'stabilize';
+  /** "dice": a plain roll of other dice (request_dice) with no target number; the DM reads the total. */
+  purpose: 'normal' | 'stabilize' | 'dice';
   stage: 'main' | 'heroic' | 'damage';
   die: DieSize;
   /** How many dice the roller must produce at this stage. */
@@ -214,6 +215,8 @@ export interface RollReport {
   heroicSpent: 'none' | 'reroll' | 'plus5';
   notes: string[];
   consequences: string[];
+  /** Set for a plain dice roll (request_dice), e.g. "2d6": no target number, no success or failure. */
+  dice?: string;
 }
 
 export interface Clue {

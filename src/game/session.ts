@@ -27,6 +27,8 @@ export interface SessionImages {
   cards: Record<string, string>;
   /** Images painted during this session (for the cost meter). */
   generated: number;
+  /** How many times each place ("scene:<id>") and character ("npc:<id>") has been shown; each new visit gets a new picture. */
+  visits?: Record<string, number>;
 }
 
 /** Everything needed to resume a game: saved to IndexedDB after every turn. */

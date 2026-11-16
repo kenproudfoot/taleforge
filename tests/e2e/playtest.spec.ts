@@ -23,7 +23,7 @@ test('a game writes a playtest log with feedback and notes to the playtests fold
   await page.getByLabel('Player name').fill('Jo');
   await page.getByText('Rogue', { exact: true }).click();
   await page.getByLabel('Character name').fill('Mags');
-  await page.locator('label[title="Dexterity"]').click();
+  await page.locator('label[title^="DEX:"]').click();
   await page.getByRole('button', { name: /Confirm and review party/ }).click();
   await page.getByRole('button', { name: /Begin the adventure/ }).click();
   await expect(page.getByText('Mags, what do you do?')).toBeVisible();

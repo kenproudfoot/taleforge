@@ -338,6 +338,8 @@ describe('ArtDirector', () => {
       concurrency: 2,
       onError: (m) => errors.push(m),
       sleep: instant,
+      // No party in establishing shots unless a test asks for it.
+      random: () => 0.9,
     });
     return {
       director,
@@ -380,18 +382,69 @@ describe('ArtDirector', () => {
     expect(t.director.paintingCurrent()).toBe(false);
   });
 
-  it('never pays twice for the same image', async () => {
+  it('never pays twice when a saved game is reopened, but a new game gets new pictures', async () => {
     const t = setup();
     t.director.start();
     await flush(30);
     const count = t.requests.length;
-    const again = setup();
-    for (const [k, v] of t.store) again.store.set(k, v);
-    again.director.start();
-    await flush(30);
-    expect(again.requests).toHaveLength(0);
-    expect(Object.keys(again.session.images.scenes)).toHaveLength(2);
     expect(count).toBeGreaterThan(0);
+    // Reopen the same game: nothing is repainted, and it is not counted as a new visit.
+    const reopened = setup();
+    for (const [k, v] of t.store) reopened.store.set(k, v);
+    reopened.session = t.session;
+    reopened.director.start();
+    await flush(30);
+    expect(reopened.requests).toHaveLength(0);
+    expect(reopened.session.images.visits).toEqual(t.session.images.visits);
+    // A brand-new game of the same campaign paints its own scenes.
+    const fresh = setup();
+    for (const [k, v] of t.store) fresh.store.set(k, v);
+    fresh.director.start();
+    await flush(30);
+    expect(fresh.requests.length).toBeGreaterThan(0);
+    expect(fresh.session.images.scenes.brinewick).not.toBe(t.session.images.scenes.brinewick);
+  });
+
+  it('paints a fresh view on every return visit and sometimes shows the party in the scene', async () => {
+    const t = setup({});
+    let roll = 0.9;
+    // Rebuild with a controllable random source.
+    const d = t.director as unknown as { deps: { random?: () => number } };
+    d.deps.random = () => roll;
+    t.director.start();
+    await flush(30);
+    const first = t.session.images.scenes.brinewick!;
+    expect(t.requests.filter((r) => r.prompt.includes('adventurers are part of it'))).toHaveLength(0);
+    t.session = { ...t.session, state: { ...t.session.state, locationId: 'causeway' } };
+    t.director.handle({ type: 'scene_changed', locationId: 'causeway' });
+    await flush(30);
+    roll = 0.1;
+    t.session = { ...t.session, state: { ...t.session.state, locationId: 'brinewick' } };
+    t.director.handle({ type: 'scene_changed', locationId: 'brinewick' });
+    expect(t.session.images.current).toBe(first);
+    await flush(30);
+    expect(t.session.images.scenes.brinewick).not.toBe(first);
+    expect(t.session.images.current).toBe(t.session.images.scenes.brinewick);
+    const revisit = t.requests.at(-1)!;
+    expect(revisit.references).toHaveLength(2);
+    expect(revisit.prompt).toContain('Each character must look exactly like this');
+    expect(t.session.images.visits).toMatchObject({ 'scene:brinewick': 2, 'scene:causeway': 1 });
+  });
+
+  it('gives an NPC a new portrait each time they come back', async () => {
+    const t = setup();
+    t.session = { ...t.session, state: { ...t.session.state, roster: [{ ...world.pack.cast[2]!, maxHp: 9, conditions: [], improvised: false, present: true, status: 'active' }] } };
+    t.director.handle({ type: 'roster_added', id: 'tide-wight' });
+    await flush(20);
+    const first = t.session.images.portraits['tide-wight'];
+    t.director.handle({ type: 'roster_added', id: 'tide-wight' });
+    await flush(20);
+    expect(t.session.images.portraits['tide-wight']).not.toBe(first);
+    const loc = world.pack.world.locations[1]!;
+    expect(basePrompt({ kind: 'scene', location: loc }, world.pack)).not.toContain('This time:');
+    expect(basePrompt({ kind: 'scene', location: loc, variation: 2 }, world.pack)).toContain('This time:');
+    expect(basePrompt({ kind: 'npc', entry: world.pack.cast[2]!, variation: 3 }, world.pack)).toContain('This time:');
+    expect(basePrompt({ kind: 'scene', location: loc, members: t.session.state.party }, world.pack)).toContain('adventurers are part of it');
   });
 
   it('shows a cached scene at once on a scene change and paints new ones, prefetching neighbours', async () => {
@@ -406,6 +459,7 @@ describe('ArtDirector', () => {
     expect(t.session.images.scenes).toHaveProperty('drowned-gate');
     t.session = { ...t.session, state: { ...t.session.state, locationId: 'brinewick' } };
     t.director.handle({ type: 'scene_changed', locationId: 'brinewick' });
+    // The old picture shows at once while a fresh view is painted.
     expect(t.session.images.current).toBe(brinewick);
     t.director.handle({ type: 'scene_changed', locationId: 'nowhere' });
   });

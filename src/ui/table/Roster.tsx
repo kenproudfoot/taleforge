@@ -8,6 +8,7 @@ import { Icon } from '../Icon';
 import { Modal } from '../Modal';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
+import { TIPS, statTip } from '../glossary';
 import { useStoredImage } from '../useStoredImage';
 import { useVoiceUi } from '../voice/useVoice';
 import { Avatar } from './Avatar';
@@ -71,31 +72,31 @@ function PartyBack({ m, campaign, actIndex }: { m: PartyMember; campaign: Engine
       </header>
       <div className={styles.statGrid}>
         {STATS.map((s) => (
-          <span key={s} className={cx(styles.statCell, m.proficiencies.includes(s) && styles.statProf)} title={m.proficiencies.includes(s) ? 'Proficient' : undefined}>
+          <span key={s} className={cx(styles.statCell, m.proficiencies.includes(s) && styles.statProf)} title={statTip(s, m.proficiencies.includes(s))}>
             <small>{s}</small>
             {signed(m.stats[s])}
           </span>
         ))}
       </div>
       <dl className={styles.facts}>
-        <div>
+        <div title={TIPS.hp}>
           <dt>Hit points</dt>
           <dd>
             {m.hp} / {m.maxHp} <HpBar hp={m.hp} max={m.maxHp} />
           </dd>
         </div>
-        <div>
+        <div title={TIPS.defense}>
           <dt>Defense</dt>
           <dd>{m.defense}</dd>
         </div>
-        <div>
+        <div title={TIPS.attack}>
           <dt>Attack</dt>
           <dd>
             {m.attackStat} {signed(m.stats[m.attackStat] + 2)}, d{m.weaponDie}
             {signed(m.stats[m.attackStat])} damage
           </dd>
         </div>
-        <div>
+        <div title={TIPS.heroic}>
           <dt>Heroic Points</dt>
           <dd>{m.heroicPoints}</dd>
         </div>
@@ -110,7 +111,7 @@ function PartyBack({ m, campaign, actIndex }: { m: PartyMember; campaign: Engine
             </div>
           ))}
       </dl>
-      <p className={styles.ability}>
+      <p className={styles.ability} title={TIPS.signature}>
         <Icon name="star" size={14} /> <strong>{m.signature.name}</strong> ({m.signatureUsedInAct === actIndex ? 'used this act' : 'ready'}): {m.signature.description}
       </p>
       {m.conditions.length > 0 && <p className={styles.line}>Conditions: {m.conditions.join(', ')}</p>}
@@ -141,13 +142,13 @@ function NpcBack({ e }: { e: RosterEntry }) {
         </span>
       </header>
       <dl className={styles.facts}>
-        <div>
+        <div title={TIPS.hp}>
           <dt>Hit points</dt>
           <dd>
             {e.hp} / {e.maxHp} <HpBar hp={e.hp} max={e.maxHp} />
           </dd>
         </div>
-        <div>
+        <div title={TIPS.defense}>
           <dt>Defense</dt>
           <dd>{e.defense}</dd>
         </div>

@@ -3,7 +3,7 @@ import type { CampaignPack } from '@/content/pack';
 import type { Question } from '@/content/schemas';
 import { STAT_CAP } from '@/engine/rules';
 import { STATS } from '@/engine/types';
-import type { Archetype, Stat } from '@/engine/types';
+import type { Archetype } from '@/engine/types';
 import { PLAYER_COLORS, SURPRISE_FIELDS } from '@/game/characters';
 import type { CharacterAnswers, SurpriseField } from '@/game/characters';
 import { suggestNames, surpriseFields } from '@/game/surprise';
@@ -11,6 +11,7 @@ import { ArchetypeIcon } from '../ArchetypeIcon';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
+import { STAT_NAMES, statTip } from '../glossary';
 import styles from './newgame.module.css';
 
 interface Props {
@@ -24,7 +25,6 @@ interface Props {
   diceChoice?: { value: 'digital' | 'physical'; onChange(v: 'digital' | 'physical'): void };
 }
 
-const STAT_NAMES: Record<Stat, string> = { STR: 'Strength', DEX: 'Dexterity', CON: 'Constitution', INT: 'Intellect', WIS: 'Wisdom', CHA: 'Charisma' };
 const signed = (n: number) => (n >= 0 ? `+${n}` : String(n));
 const isSurprise = (id: string): id is SurpriseField => (SURPRISE_FIELDS as readonly string[]).includes(id);
 
@@ -144,7 +144,7 @@ export function CharacterForm({ index, answers, onChange, questions, archetypes,
                 const base = archetype?.stats[s] ?? 0;
                 const on = answers.bump === s;
                 return (
-                  <label key={s} className={cx(styles.stat, on && styles.statOn)} title={STAT_NAMES[s]}>
+                  <label key={s} className={cx(styles.stat, on && styles.statOn)} title={statTip(s)}>
                     <input type="radio" name={uid('bump')} className="sr-only" checked={on} onChange={() => set('bump', s)} />
                     <span className={styles.statName}>{s}</span>
                     <span className={styles.statValue}>{archetype ? signed(Math.min(STAT_CAP, base + (on ? 1 : 0))) : '+1'}</span>

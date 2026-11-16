@@ -22,13 +22,15 @@ test('save and quit writes a recap that restores the exact game in a fresh brows
   await page.getByLabel('Player name').fill('Jo');
   await page.getByText('Rogue', { exact: true }).click();
   await page.getByLabel('Character name').fill('Mags');
-  await page.locator('label[title="Dexterity"]').click();
+  await page.locator('label[title^="DEX:"]').click();
   await page.getByRole('button', { name: /Confirm and review party/ }).click();
   await page.getByRole('button', { name: /Begin the adventure/ }).click();
   await expect(page.getByText('Mags, what do you do?')).toBeVisible();
   await page.getByLabel('Your action').fill('I head out.');
   await page.getByRole('button', { name: 'Send' }).click();
-  await expect(page.getByText('The fog thickens. Mags?')).toBeVisible();
+  // The closing question sits below a rule, apart from the narration.
+  await expect(page.getByText('The fog thickens.', { exact: true })).toBeVisible();
+  await expect(page.getByText('Mags?', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Pause' }).click();
   await page.getByRole('button', { name: 'Save and quit' }).click();

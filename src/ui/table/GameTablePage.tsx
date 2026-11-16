@@ -8,6 +8,7 @@ import { useSettings } from '@/app/settingsStore';
 import { useDiceTray } from '@/dice/DiceTray';
 import { milestoneBoostAvailable } from '@/engine/state';
 import { STATS } from '@/engine/types';
+import type { SpeechUnit } from '@/ai/voice/sentences';
 import { recapFileName } from '@/game/recap';
 import { formatClock, usesPhysicalDice } from '@/game/session';
 import type { DiceMode } from '@/game/session';
@@ -17,6 +18,7 @@ import { Icon } from '../Icon';
 import { Modal } from '../Modal';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
+import { statTip } from '../glossary';
 import { ModelPicker } from '../settings/ModelsSection';
 import { downloadText } from '../download';
 import { themeStyle } from '../theme';
@@ -40,6 +42,10 @@ export interface TableSlots {
   /** Called for each dice impact during a throw, with a 0..1 loudness (for sound). */
   onDiceImpact?: (loudness: number) => void;
   speaking?: { entryId: string; start: number; end: number } | null;
+  /** Reads one spoken line of a DM message again. */
+  onReplay?(entryId: string, unit: SpeechUnit): void;
+  /** People in the game, for telling who says a “quoted” line. */
+  names?: string[];
   dictated?: { id: number; text: string } | null;
   painting?: boolean;
 }
@@ -154,7 +160,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
 
       <div className={styles.body}>
         <main className={styles.chat}>
-          <ChatLog session={session} busy={game.busy} onRetry={() => void game.retry()} speaking={slots.speaking} feedback={playtesting ? session.playtest.feedback : null} onFeedback={game.setFeedback} />
+          <ChatLog session={session} busy={game.busy} onRetry={() => void game.retry()} speaking={slots.speaking} onReplay={slots.onReplay} names={slots.names} feedback={playtesting ? session.playtest.feedback : null} onFeedback={game.setFeedback} />
           {!game.busy && !state.ended && session.history.length === 0 && session.summary.trim() !== '' && (
             <div className={styles.resume}>
               <span>This game was restored from a recap. The Dungeon Master will remind everyone where things stand.</span>
@@ -293,7 +299,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
               <legend>{m.name}</legend>
               <div className={styles.boostStats}>
                 {STATS.map((s) => (
-                  <button key={s} type="button" className={controls.btn} onClick={() => game.boost(m.id, s)} aria-label={`${m.name}: +1 ${s}`}>
+                  <button key={s} type="button" className={controls.btn} onClick={() => game.boost(m.id, s)} aria-label={`${m.name}: +1 ${s}`} title={statTip(s)}>
                     {s} {m.stats[s] >= 0 ? '+' : ''}
                     {m.stats[s]} → {m.stats[s] + 1 >= 0 ? '+' : ''}
                     {Math.min(4, m.stats[s] + 1)}

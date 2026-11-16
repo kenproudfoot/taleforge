@@ -215,3 +215,18 @@ describe('save schema', () => {
     expect(() => parseState({ ...g, party: [] })).toThrow(/party/);
   });
 });
+
+describe('name helpers', () => {
+  it('cleans, measures and fuzzy-matches names', async () => {
+    const { cleanName, editDistance, fuzzyMatch, isUnreadableName } = await import('./state');
+    expect(cleanName(' “Vincent Castellane” ')).toBe('Vincent Castellane');
+    expect(editDistance('kitten', 'sitting')).toBe(3);
+    expect(editDistance('abc', 'abcdefgh', 2)).toBe(3);
+    const list = [{ id: 'vincent-castellane', name: 'Vincent Castellane' }, { id: 'ruby', name: 'Ruby Dahl' }];
+    expect(fuzzyMatch(list, 'Vincent Castellone')?.id).toBe('vincent-castellane');
+    expect(fuzzyMatch(list, 'Rubi')).toBeUndefined();
+    expect(fuzzyMatch([{ id: 'abcde', name: 'x' }, { id: 'abcdf', name: 'y' }], 'abcdg')).toBeUndefined();
+    expect(isUnreadableName('VWe???..?????.....??…?')).toBe(true);
+    expect(isUnreadableName('Vicky')).toBe(false);
+  });
+});

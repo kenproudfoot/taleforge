@@ -31,7 +31,7 @@ async function startGame(page: Page) {
   await page.getByLabel('Player name').fill('Jo');
   await page.getByText('Rogue', { exact: true }).click();
   await page.getByLabel('Character name').fill('Mags');
-  await page.locator('label[title="Dexterity"]').click();
+  await page.locator('label[title^="DEX:"]').click();
 }
 
 test('every main screen passes an automated WCAG 2.1 AA audit', async ({ page }) => {

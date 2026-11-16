@@ -119,16 +119,80 @@ export function rosterEntryFromTemplate(t: CastTemplate, improvised = false): Ro
 }
 
 export function slugify(text: string): string {
-  const slug = text
+  const slug = cleanName(text)
     .toLowerCase()
     .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’‘`]/g, '')
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return slug || 'entry';
 }
 
+/**
+ * Tidies a name as a model wrote it: unicode compatibility forms, any kind of space (models emit
+ * non-breaking ones), curly quotes and apostrophes, and stray wrapping quotes.
+ */
+export function cleanName(text: string): string {
+  return text
+    .normalize('NFKC')
+    .replace(/[\s\u00a0\u2000-\u200b\u202f\u205f\u3000]+/g, ' ')
+    .replace(/[’‘`]/g, "'")
+    .replace(/[“”]/g, '"')
+    .trim()
+    .replace(/^["']+|["']+$/g, '')
+    .trim();
+}
+
 function norm(text: string): string {
-  return text.trim().toLowerCase();
+  return cleanName(text).toLowerCase();
+}
+
+/** True when a name reference has too few letters to mean anything (a model's garbled output). */
+export function isUnreadableName(ref: string): boolean {
+  const text = cleanName(ref);
+  const letters = text.match(/[\p{L}\p{N}]/gu)?.length ?? 0;
+  return letters < 2 || letters / text.length < 0.5;
+}
+
+/** Levenshtein distance, early-exiting once it passes `max`. */
+export function editDistance(a: string, b: string, max = Infinity): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j]! + 1, cur[j - 1]! + 1, prev[j - 1]! + (a[i - 1] === b[j - 1] ? 0 : 1));
+      best = Math.min(best, cur[j]!);
+    }
+    if (best > max) return max + 1;
+    prev = cur;
+  }
+  return prev[b.length]!;
+}
+
+/**
+ * The one entry whose id or name is within a small typo distance of `ref` (about one edit per five
+ * letters, at most 3). Ambiguous or distant references match nothing.
+ */
+export function fuzzyMatch<T extends { id: string; name: string }>(list: T[], ref: string): T | undefined {
+  const r = slugify(ref);
+  if (r.length < 4) return undefined;
+  const max = Math.min(3, Math.floor(r.length / 5));
+  if (max < 1) return undefined;
+  let best: T | undefined;
+  let bestD = max + 1;
+  let tie = false;
+  for (const e of list) {
+    const d = Math.min(editDistance(r, slugify(e.id), max), editDistance(r, slugify(e.name), max));
+    if (d < bestD) {
+      best = e;
+      bestD = d;
+      tie = false;
+    } else if (d === bestD && d <= max && best !== e) tie = true;
+  }
+  return bestD <= max && !tie ? best : undefined;
 }
 
 function matchByName<T extends { id: string; name: string }>(list: T[], ref: string): T | undefined {
@@ -137,9 +201,11 @@ function matchByName<T extends { id: string; name: string }>(list: T[], ref: str
   return (
     list.find((e) => norm(e.id) === r) ??
     list.find((e) => norm(e.name) === r) ??
+    list.find((e) => slugify(e.name) === slugify(ref) || slugify(e.id) === slugify(ref)) ??
     list.find((e) => norm(shortName(e.name)) === r) ??
     list.find((e) => norm(e.name).split(/\s+/)[0] === r) ??
-    list.find((e) => norm(e.name).includes(r) || slugify(e.name) === slugify(ref))
+    list.find((e) => norm(e.name).includes(r)) ??
+    fuzzyMatch(list, ref)
   );
 }
 

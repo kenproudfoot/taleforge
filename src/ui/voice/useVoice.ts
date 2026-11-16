@@ -3,6 +3,7 @@ import { castVoice } from '@/ai/voice/casting';
 import type { VoiceInfo } from '@/ai/voice/casting';
 import { Narrator } from '@/ai/voice/narrator';
 import type { SpeakingRange } from '@/ai/voice/narrator';
+import type { SpeechUnit } from '@/ai/voice/sentences';
 import { getSttProvider } from '@/ai/voice/stt';
 import type { Listening } from '@/ai/voice/stt';
 import { getTtsProvider } from '@/ai/voice/tts';
@@ -108,6 +109,13 @@ export function useNarration() {
     ui,
     toggle,
     skip: useCallback(() => narrator.current?.skip(), []),
+    /** Reads one line of a DM message again. */
+    replay: useCallback((entryId: string, unit: SpeechUnit) => {
+      void resumeAudio();
+      narrator.current?.replay(entryId, unit);
+    }, []),
+    /** People in the game, for telling who says a “quoted” line (the same list the voice uses). */
+    names: hints().names,
     /** Barge-in: silence the DM now. */
     stop: useCallback(() => narrator.current?.stop(), []),
     dismissError: useCallback(() => setError(null), []),

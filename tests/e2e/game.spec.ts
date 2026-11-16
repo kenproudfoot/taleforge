@@ -51,7 +51,7 @@ test('a full scripted campaign from setup to the ending, then reopened from the 
   await page.getByRole('button', { name: 'Lyra Vance' }).click();
   await expect(page.getByLabel('Character name')).toHaveValue('Lyra Vance');
   await expect(page.getByText('Still needed: Stat boost')).toBeVisible();
-  await page.locator('label[title="Wisdom"]').click();
+  await page.locator('label[title^="WIS:"]').click();
   await page.getByRole('button', { name: /Confirm and next player/ }).click();
 
   // Player two, with a companion.
@@ -61,7 +61,7 @@ test('a full scripted campaign from setup to the ending, then reopened from the 
   await page.getByText('This character has a companion').click();
   await page.getByLabel('Companion name').fill('Biscuit');
   await page.getByLabel('What is it?').fill('a scruffy terrier');
-  await page.locator('label[title="Strength"]').click();
+  await page.locator('label[title^="STR:"]').click();
   await page.getByRole('button', { name: /Confirm and review party/ }).click();
   await expect(page.getByText('Healer · played by Sam')).toBeVisible();
   await expect(page.getByText('With Biscuit')).toBeVisible();
@@ -136,7 +136,7 @@ test('digital dice, a failed roll saved with a Heroic Point, and a free roll', a
   await page.getByLabel('Player name').fill('Jo');
   await page.getByText('Rogue', { exact: true }).click();
   await page.getByLabel('Character name').fill('Mags');
-  await page.locator('label[title="Dexterity"]').click();
+  await page.locator('label[title^="DEX:"]').click();
   await page.getByRole('button', { name: /Confirm and review party/ }).click();
   await page.getByRole('button', { name: /Begin the adventure/ }).click();
 
@@ -162,4 +162,36 @@ test('digital dice, a failed roll saved with a Heroic Point, and a free roll', a
   if (await heroic.isVisible()) await heroic.getByRole('button', { name: 'Keep the result' }).click();
   await expect(finished).toBeVisible();
   await expect(chat.getByText(/vs DC 25/)).toBeVisible();
+});
+
+test('the DM can ask for other dice: a d6 thrown in the tray, read as a plain total', async ({ page }) => {
+  const script = {
+    dm: [
+      { text: 'Footsteps echo below. Mags, what do you do?' },
+      { text: 'Fate decides how many come.', toolCalls: [{ name: 'request_dice', input: { character: 'Mags', dice: '1d6', reason: 'how many guards come running' } }] },
+      { text: 'They spill into the hall.' },
+    ],
+  };
+  await page.addInitScript((s) => localStorage.setItem('taleforge:e2e', JSON.stringify(s)), script);
+  await page.goto('./#/new');
+  await page.getByRole('button', { name: /The Sunken Crown/ }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByRole('button', { name: 'Next' }).click();
+  await page.getByLabel('Player name').fill('Jo');
+  await page.getByText('Rogue', { exact: true }).click();
+  await page.getByLabel('Character name').fill('Mags');
+  await page.locator('label[title^="DEX:"]').click();
+  await page.getByRole('button', { name: /Confirm and review party/ }).click();
+  await page.getByRole('button', { name: /Begin the adventure/ }).click();
+
+  const chat = page.getByRole('log', { name: 'Game chat' });
+  await expect(chat).toContainText('Footsteps echo below.');
+  await page.getByLabel('Your action').fill('I listen at the stairs.');
+  await page.getByLabel('Your action').press('Enter');
+  const prompt = page.getByRole('region', { name: 'Roll request' });
+  await expect(prompt).toContainText('Mags, roll a d6!');
+  await prompt.getByRole('button', { name: /Roll d6/ }).click();
+  await page.getByRole('dialog', { name: 'Dice tray' }).getByRole('button', { name: 'Throw the d6' }).click();
+  await expect(chat.getByText('They spill into the hall.')).toBeVisible({ timeout: 20_000 });
+  await expect(chat).toContainText('1d6 · how many guards come running');
 });

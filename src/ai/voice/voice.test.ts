@@ -355,3 +355,34 @@ describe('Narrator', () => {
     narrator.stop();
   });
 });
+
+describe('pauses and replay', () => {
+  it('leaves a beat at paragraph breaks and a longer one before the DM addresses a character', async () => {
+    const { HANDOFF_PAUSE_MS, PARAGRAPH_PAUSE_MS } = await import('./sentences');
+    const units = speechUnits('The rope gives way. You fall.\n\nThe dockhand grins.\n\nEddie, do you fight or run?', true, ['Eddie Vance']);
+    expect(units.map((u) => u.pause)).toEqual([undefined, undefined, PARAGRAPH_PAUSE_MS, HANDOFF_PAUSE_MS]);
+    expect(speechUnits('It is dark. Eddie, what now?', true, ['Eddie Vance'])[1]!.pause).toBe(HANDOFF_PAUSE_MS);
+    expect(speechUnits('It is dark. What now?', true, ['Eddie Vance'])[1]!.pause).toBeUndefined();
+  });
+
+  it('waits out the pause before playing, and replays a line on request even when muted', async () => {
+    const tts = fakeTts();
+    const waits: number[] = [];
+    const full: NarratorConfig = { enabled: false, narratorVoice: 'narr', speed: 1, npcVoices: true, overrides: {}, hints: {} };
+    const narrator = new Narrator({ provider: () => tts.provider, config: () => full, onSpeaking: () => undefined, duck: () => undefined, sleep: async (ms) => void waits.push(ms) });
+    narrator.feed('e1', 'One.\n\nTwo.', true);
+    await settle();
+    expect(tts.log).toEqual([]);
+    full.enabled = true;
+    narrator.feed('e2', 'One.\n\nTwo.', true);
+    await settle();
+    tts.playing.shift()!.finish();
+    await settle();
+    expect(waits).toEqual([450]);
+    expect(tts.log).toContain('play:Two.');
+    narrator.replay('e2', { start: 0, end: 4, text: 'One.', speaker: null, pause: 900 });
+    await settle();
+    expect(tts.log.at(-1)).toBe('play:One.');
+    expect(waits).toEqual([450]);
+  });
+});

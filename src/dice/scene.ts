@@ -3,7 +3,7 @@ import { dieShape, labelsFor } from './geometry';
 import type { DieShape, Vec3 } from './geometry';
 import { faceText } from './plan';
 import type { PlannedDie } from './plan';
-import { TRAY } from './sim';
+import { HAND, TRAY, clampToTray } from './sim';
 import type { Simulation } from './sim';
 
 export interface DiceColors {
@@ -163,17 +163,45 @@ export class DiceScene {
     this.dice = [];
   }
 
+  /** The hand holding the dice: eases toward `target`; `held` while the pointer is down. */
+  private hand = { x: HAND.x, z: HAND.z, targetX: HAND.x, targetZ: HAND.z, held: false };
+  private raycaster = new THREE.Raycaster();
+
   /** Shows the dice resting in the player's hand at the near edge, turning slowly. */
   showInHand(plan: PlannedDie[]): void {
     this.clear();
     this.dice = plan.map((die, i) => {
       const group = buildDie(die, labelsFor(die.type, 0, die.type === 10 ? 0 : 1), this.colors);
-      group.position.set((i - (plan.length - 1) / 2) * 2.4, 1.6, TRAY.halfDepth - 1.4);
       group.userData.spin = 0.5 + i * 0.13;
+      group.userData.offset = (i - (plan.length - 1) / 2) * 1.5;
+      group.position.set(this.hand.x + group.userData.offset, HAND.y, this.hand.z);
       this.scene.add(group);
       return group;
     });
     this.playback = null;
+  }
+
+  /** Where a pointer at (clientX, clientY) is over the tray, at hand height, kept clear of the walls. */
+  pointerToTray(clientX: number, clientY: number): [number, number] {
+    const rect = this.canvas.getBoundingClientRect();
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
+    this.raycaster.setFromCamera(ndc, this.camera);
+    const hit = new THREE.Vector3();
+    const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -HAND.y);
+    if (!this.raycaster.ray.intersectPlane(plane, hit)) return [this.hand.targetX, this.hand.targetZ];
+    return clampToTray(hit.x, hit.z);
+  }
+
+  /** Picks the dice up (or moves them) to a point over the tray. */
+  hold(x: number, z: number): void {
+    this.hand.targetX = x;
+    this.hand.targetZ = z;
+    this.hand.held = true;
+  }
+
+  /** Where the dice are now, for the throw to start from. */
+  handPosition(): [number, number] {
+    return [this.hand.x, this.hand.z];
   }
 
   private playback: { sim: Simulation; start: number; onImpact?: (loudness: number) => void; nextImpact: number; done: () => void } | null = null;
@@ -213,11 +241,18 @@ export class DiceScene {
         pb.done();
       }
     } else {
+      // Follow the pointer quickly so the dice feel held, not dragged behind.
+      const h = this.hand;
+      h.x += (h.targetX - h.x) * 0.45;
+      h.z += (h.targetZ - h.z) * 0.45;
+      const rate = h.held ? 2.6 : 1;
       for (const die of this.dice) {
         if (typeof die.userData.spin === 'number') {
-          die.rotation.x = now * 0.0006 * die.userData.spin;
-          die.rotation.y = now * 0.0009 * die.userData.spin;
-          die.position.y = 1.6 + Math.sin(now * 0.002 + die.userData.spin * 9) * 0.12;
+          die.rotation.x = now * 0.0006 * die.userData.spin * rate;
+          die.rotation.y = now * 0.0009 * die.userData.spin * rate;
+          die.position.x = h.x + (die.userData.offset ?? 0);
+          die.position.z = h.z;
+          die.position.y = HAND.y + (h.held ? 0.5 : 0) + Math.sin(now * 0.002 * rate + die.userData.spin * 9) * 0.12;
         }
       }
     }

@@ -31,6 +31,8 @@ export function PlayPage() {
       <GameTablePage
         slots={{
           speaking: narration.speaking,
+          onReplay: narration.replay,
+          names: narration.names,
           painting: art.painting,
           onDiceImpact: music.onDiceImpact,
           dictated,

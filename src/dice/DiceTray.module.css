@@ -23,7 +23,8 @@
 .grab {
   cursor: grab;
 }
-.grab:active {
+.grab:active,
+.grabbing {
   cursor: grabbing;
 }
 .hud {

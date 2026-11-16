@@ -5,6 +5,7 @@ import type { GameState, PendingRoll } from '@/engine/types';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
+import { TIPS, statTip } from '../glossary';
 import styles from './RollPrompt.module.css';
 import { shortName } from '@/engine/names';
 
@@ -20,6 +21,10 @@ interface Props {
 /** "Brann, roll a d20 for a STR check, DC 13" */
 export function describeRequest(p: PendingRoll): string {
   const who = shortName(p.rollerName);
+  if (p.purpose === 'dice') {
+    const mod = p.bonus ? (p.bonus > 0 ? ` + ${p.bonus}` : ` - ${-p.bonus}`) : '';
+    return `${who}, roll ${p.diceCount > 1 ? `${p.diceCount}d${p.die}` : `a d${p.die}`}${mod}!`;
+  }
   if (p.stage === 'damage') return `${who} hits! Roll a d${p.die} for damage.`;
   const dice = p.diceCount === 2 ? `two d20 and keep the ${p.mode === 'advantage' ? 'higher' : 'lower'}` : 'a d20';
   if (p.kind === 'attack') return `${who}, roll ${dice} to attack ${p.targetName ?? 'the target'}.`;
@@ -96,7 +101,7 @@ export function RollPrompt({ state, physical, onDice, onHeroic, rollDigital }: P
             {shortName(p.rollerName)} rolled {describeCheck(p.main, p.kind === 'attack' ? 'Defense' : 'DC')}: not enough.
           </strong>
           <span>
-            Spend a Heroic Point? ({member?.heroicPoints ?? 0} left)
+            <span title={TIPS.heroic}>Spend a Heroic Point?</span> ({member?.heroicPoints ?? 0} left)
           </span>
         </div>
         <div className={controls.row}>
@@ -130,7 +135,7 @@ export function RollPrompt({ state, physical, onDice, onHeroic, rollDigital }: P
   return (
     <section className={styles.prompt} aria-label="Roll request" style={{ ['--player' as string]: member?.playerColor ?? 'var(--accent)' }}>
       <div className={styles.text}>
-        <strong>{describeRequest(p)}</strong>
+        <strong title={p.purpose === 'dice' ? TIPS.plainDice : `${statTip(p.stat)}${p.dc !== null && p.kind !== 'attack' ? ` ${TIPS.dc}` : ''}`}>{describeRequest(p)}</strong>
         <span>
           {p.stage === 'main' ? p.reason : `Damage to ${p.targetName ?? 'the target'}`}
           {p.notes.length ? ` · ${p.notes.join(' · ')}` : ''}

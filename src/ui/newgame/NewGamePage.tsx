@@ -17,6 +17,7 @@ import { CampaignCover } from '../CampaignCover';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
+import { statTip } from '../glossary';
 import { themeStyle } from '../theme';
 import { CharacterForm } from './CharacterForm';
 import styles from './newgame.module.css';
@@ -269,7 +270,15 @@ export function NewGamePage() {
                     <span className={styles.reviewMeta}>
                       {arch?.name} · played by {a.playerName}
                     </span>
-                    {arch && <span className={styles.reviewStats}>{STATS.map((s) => `${s} ${arch.stats[s] + (a.bump === s ? 1 : 0) >= 0 ? '+' : ''}${arch.stats[s] + (a.bump === s ? 1 : 0)}`).join('  ')}</span>}
+                    {arch && (
+                      <span className={styles.reviewStats}>
+                        {STATS.map((s) => (
+                          <span key={s} title={statTip(s)}>
+                            {`${s} ${arch.stats[s] + (a.bump === s ? 1 : 0) >= 0 ? '+' : ''}${arch.stats[s] + (a.bump === s ? 1 : 0)}`}{'  '}
+                          </span>
+                        ))}
+                      </span>
+                    )}
                     {a.companion?.name && (
                       <span className={styles.reviewMeta}>
                         With {a.companion.name}

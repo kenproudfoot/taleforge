@@ -99,7 +99,7 @@ describe('describeState', () => {
     g.encounters.push({ id: 'ambush', outcome: 'won' });
     const text = describeState(g, CAMPAIGN);
     expect(text).toContain('Location: Mossford Village (village)');
-    expect(text).toContain('- Brann Ironfoot (Knight, played by Alex); HP 22/22; Defense 13; Heroic Points 1; Shield Wall used; Nerve 3/5');
+    expect(text).toContain('- Brann Ironfoot [pc-brann] (Knight, played by Alex); HP 22/22; Defense 13; Heroic Points 1; Shield Wall used; Nerve 3/5');
     expect(text).toContain('DOWNED; conditions: Downed');
     expect(text).toContain('Torchlight: 6/6');
     expect(text).toContain('- Goblin Scout [goblin] (enemy) HP 7/7, Defense 12, Hidden');

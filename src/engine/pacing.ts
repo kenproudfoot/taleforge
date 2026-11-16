@@ -120,7 +120,7 @@ export function describeState(state: GameState, campaign: EngineCampaign): strin
   lines.push('Party:');
   for (const m of state.party) {
     const bits = [
-      `${m.name} (${m.archetypeName}, played by ${m.playerName})`,
+      `${m.name} [${m.id}] (${m.archetypeName}, played by ${m.playerName})`,
       `HP ${m.hp}/${m.maxHp}`,
       `Defense ${m.defense}`,
       m.status !== 'ok' ? m.status.toUpperCase() : '',

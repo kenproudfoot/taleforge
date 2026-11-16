@@ -4,7 +4,8 @@ import { dieShape, dot, hullFaces, labelsFor, readTop, rotate } from './geometry
 import type { DieType } from './geometry';
 import { faceText, planRoll } from './plan';
 import { quickRoll } from './roll';
-import { simulateThrow, simulateUntilFlat } from './sim';
+import { MAX_STRENGTH, MIN_STRENGTH, buttonThrow, throwFromGesture } from './gesture';
+import { TRAY, clampToTray, simulateThrow, simulateUntilFlat } from './sim';
 
 const TYPES: DieType[] = [4, 6, 8, 10, 12, 20];
 
@@ -145,5 +146,41 @@ describe('physics simulation', () => {
       const reading = readTop(dieShape(20), sim.frames.at(-1)![0]!.q);
       expect(labels[reading.index]).toBe(plan.values[0]);
     }
+  });
+  it('starts from wherever the hand lets go, kept clear of the walls, and still lands in the tray', { timeout: 30_000 }, () => {
+    const sim = simulateUntilFlat([6, 6], { strength: 1.3, direction: 0.4, origin: [-3, -1] }, seeded(7));
+    expect(sim.frames[0]![0]!.p[0]).toBeLessThan(-2);
+    expect(Math.abs(sim.frames[0]![0]!.p[2] + 1)).toBeLessThan(0.5);
+    expect(clampToTray(99, 99)).toEqual([TRAY.halfWidth - 1.2, TRAY.halfDepth - 1]);
+    const last = sim.frames.at(-1)!;
+    for (const d of last) {
+      expect(Math.abs(d.p[0])).toBeLessThan(TRAY.halfWidth);
+      expect(Math.abs(d.p[2])).toBeLessThan(TRAY.halfDepth);
+    }
+  });
+  it('even the gentlest throw gets the dice moving across the tray', () => {
+    const sim = simulateThrow([20], { strength: MIN_STRENGTH, direction: 0 }, seeded(5));
+    const travelled = Math.hypot(sim.frames.at(-1)![0]!.p[0] - sim.frames[0]![0]!.p[0], sim.frames.at(-1)![0]!.p[2] - sim.frames[0]![0]!.p[2]);
+    expect(travelled).toBeGreaterThan(2);
+  });
+});
+
+describe('throw gestures', () => {
+  const r = () => 0.5;
+  it('reads only the flick at the end of a drag: a slow carry then a fast flick is a hard throw', () => {
+    const slowCarry = Array.from({ length: 20 }, (_, i) => ({ x: 500, y: 600 - i, t: i * 50 }));
+    const flick = [...slowCarry, { x: 520, y: 520, t: 1000 }, { x: 540, y: 400, t: 1040 }];
+    const hard = throwFromGesture(flick, r);
+    expect(hard.strength).toBeGreaterThan(1.5);
+    expect(hard.direction).toBeGreaterThan(0);
+    expect(hard.direction).toBeLessThan(0.8);
+    expect(throwFromGesture(slowCarry, r).strength).toBeLessThan(1.1);
+  });
+  it('never throws softly: a click, a still release or a pull toward the player is still a firm throw', () => {
+    expect(throwFromGesture([{ x: 1, y: 1, t: 0 }], r)).toEqual({ strength: MIN_STRENGTH, direction: 0 });
+    expect(throwFromGesture([{ x: 1, y: 1, t: 0 }, { x: 1, y: 300, t: 40 }], r).direction).toBe(0);
+    expect(throwFromGesture([], r).strength).toBeGreaterThanOrEqual(1.15);
+    expect(buttonThrow(() => 0).strength).toBeGreaterThanOrEqual(MIN_STRENGTH);
+    expect(buttonThrow(() => 0.999).strength).toBeLessThanOrEqual(MAX_STRENGTH);
   });
 });

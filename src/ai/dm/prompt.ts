@@ -11,7 +11,7 @@ function signed(n: number): string {
 export function describeMember(m: PartyMember): string {
   const p = m.profile;
   const lines = [
-    `### ${m.name} (${m.archetypeName}${m.isCompanion ? ', companion character' : ''}), played by ${m.playerName}`,
+    `### ${m.name} [id ${m.id}] (${m.archetypeName}${m.isCompanion ? ', companion character' : ''}), played by ${m.playerName}`,
     p.pronouns && `Pronouns: ${p.pronouns}`,
     [p.age, p.build, p.features].filter(Boolean).join(', ') && `Appearance: ${[p.age, p.build, p.features].filter(Boolean).join(', ')}`,
     p.strikingFeature && `Striking feature: ${p.strikingFeature}`,
@@ -101,6 +101,7 @@ export function buildSystemPrompt(core: CoreContent, pack: CampaignPack, state: 
       'Reply with spoken narration (2-5 sentences), using tools for every roll and every change to the game. End by addressing a character by name.',
       'Before you narrate, check: is someone attacking or attempting something risky? Then call request_roll first and wait for the result. Has the party arrived somewhere new? Then call scene_change first.',
       'When anyone speaks aloud, write the line as «Name: words», never in plain quotation marks, so the right voice reads it.',
+      'In tool calls, name characters by their id (the [id] shown in the game state, e.g. a party member\'s pc-… id or a cast id), not by their full name.',
     ].join('\n'),
   ].join('\n\n');
   return [{ text, cache: true }];

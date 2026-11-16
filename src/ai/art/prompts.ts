@@ -4,12 +4,38 @@ import type { PartyMember, RosterEntry } from '@/engine/types';
 /** Structured description of an image. Prompts are written from these so they stay consistent. */
 export type ArtSubject =
   | { kind: 'portrait'; member: PartyMember; artHint: string }
-  | { kind: 'npc'; entry: Pick<RosterEntry, 'id' | 'name' | 'role' | 'look'> | CastEntry }
-  | { kind: 'scene'; location: Pick<Location, 'id' | 'name' | 'imagePrompt' | 'description'> }
+  | { kind: 'npc'; entry: Pick<RosterEntry, 'id' | 'name' | 'role' | 'look'> | CastEntry; variation?: number }
+  | {
+      kind: 'scene';
+      location: Pick<Location, 'id' | 'name' | 'imagePrompt' | 'description'>;
+      /** Party members who appear somewhere in the shot (not posing). Empty or absent: an empty establishing shot. */
+      members?: PartyMember[];
+      /** Which visit this is (1 = first): later visits ask for a fresh view of the same place. */
+      variation?: number;
+    }
   | { kind: 'party'; members: PartyMember[]; location: Pick<Location, 'name' | 'imagePrompt'> }
   | { kind: 'moment'; description: string; members: PartyMember[]; locationName: string };
 
 const NO_TEXT = 'No text, letters, captions, logos or watermarks anywhere in the image.';
+
+/** Fresh framings for a place or person seen again, so a return visit never shows the same picture. */
+const SCENE_VIEWS = [
+  'seen from a new vantage point at ground level, looking deeper into the place',
+  'seen from a higher angle that takes in more of the surroundings',
+  'a closer view of a different corner of the place, rich in small details',
+  'seen from the far side, looking back the way the party came',
+  'a low dramatic angle with strong foreground shapes',
+];
+const NPC_VIEWS = [
+  'a different pose and expression, mid-gesture',
+  'seen in profile, caught in a quiet moment',
+  'leaning in close, sharper lighting',
+  'a new angle in a different part of the scene, telling body language',
+];
+
+function view(list: string[], variation: number | undefined): string {
+  return variation && variation > 1 ? ` This time: ${list[(variation - 2) % list.length]}.` : '';
+}
 
 function describeMember(m: PartyMember, artHint = ''): string {
   const p = m.profile;
@@ -45,6 +71,7 @@ export function lookOf(m: PartyMember): string {
 function membersOf(subject: ArtSubject): PartyMember[] {
   if (subject.kind === 'portrait') return [subject.member];
   if (subject.kind === 'party' || subject.kind === 'moment') return subject.members;
+  if (subject.kind === 'scene') return subject.members ?? [];
   return [];
 }
 
@@ -78,10 +105,13 @@ export function basePrompt(subject: ArtSubject, pack: CampaignPack): string {
       return `Full-body character portrait, standing in a three-quarter pose against a softly lit atmospheric backdrop that suits the setting, whole figure in frame with space above the head and below the feet. ${describeMember(subject.member, subject.artHint)}. Expressive face, detailed costume and gear. ${style} ${NO_TEXT}`;
     case 'npc': {
       const role = subject.entry.role === 'boss' ? 'a menacing antagonist' : subject.entry.role === 'enemy' ? 'a dangerous foe' : 'a memorable character';
-      return `Character portrait of ${subject.entry.name}, ${role}: ${subject.entry.look}. Waist-up, dramatic lighting, atmospheric background. ${style} ${NO_TEXT}`;
+      return `Character portrait of ${subject.entry.name}, ${role}: ${subject.entry.look}. Waist-up, dramatic lighting, atmospheric background.${view(NPC_VIEWS, subject.variation)} ${style} ${NO_TEXT}`;
     }
     case 'scene':
-      return `Wide establishing shot of ${subject.location.name}: ${subject.location.imagePrompt}. Cinematic composition, strong sense of place and depth, no people in the foreground. ${style} ${NO_TEXT}`;
+      if (subject.members?.length) {
+        return `Wide establishing shot of ${subject.location.name}: ${subject.location.imagePrompt}. The place is the subject; the adventurers are part of it, in the middle distance, going about their business rather than posing: ${subject.members.map((m) => describeMember(m)).join('; ')}. Cinematic composition, strong sense of place and depth.${view(SCENE_VIEWS, subject.variation)} ${style} ${NO_TEXT}`;
+      }
+      return `Wide establishing shot of ${subject.location.name}: ${subject.location.imagePrompt}. Cinematic composition, strong sense of place and depth, no people in the foreground.${view(SCENE_VIEWS, subject.variation)} ${style} ${NO_TEXT}`;
     case 'party':
       return `Group portrait of an adventuring party together at ${subject.location.name} (${subject.location.imagePrompt}). From left to right: ${subject.members.map((m) => describeMember(m)).join('; ')}. Everyone fully visible, confident heroic poses, wide shot. ${style} ${NO_TEXT}`;
     case 'moment':
@@ -89,7 +119,7 @@ export function basePrompt(subject: ArtSubject, pack: CampaignPack): string {
   }
 }
 
-/** Stable identity of a subject for caching: the same subject in the same style is painted once. */
+/** Identity of a subject for caching: the same subject in the same style (and the same game and visit) is painted once. */
 export function subjectSignature(subject: ArtSubject, pack: CampaignPack): string {
   return `${pack.id}|${pack.manifest.art_style}|${basePrompt(subject, pack)}`;
 }

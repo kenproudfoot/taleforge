@@ -5,6 +5,7 @@ import type { Session } from '@/game/session';
 import { Icon } from '../Icon';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
+import { TIPS } from '../glossary';
 import { HpBar } from './Roster';
 import styles from './StatePanel.module.css';
 import { shortName } from '@/engine/names';
@@ -81,7 +82,7 @@ export function StatePanel({ session, campaign, onBoost }: { session: Session; c
                 <i className={styles.dot} />
                 {m.name}
               </span>
-              <span className={styles.memberHp}>
+              <span className={styles.memberHp} title={TIPS.hp}>
                 <HpBar hp={m.hp} max={m.maxHp} /> {m.hp}/{m.maxHp}
               </span>
               <span className={styles.tags}>
@@ -93,7 +94,7 @@ export function StatePanel({ session, campaign, onBoost }: { session: Session; c
                       {c}
                     </span>
                   ))}
-                <span className={controls.chip} title="Heroic Points">
+                <span className={controls.chip} title={TIPS.heroic}>
                   <Icon name="star" size={11} /> {m.heroicPoints}
                 </span>
                 {campaign.resources

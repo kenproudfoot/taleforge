@@ -1,12 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { parseNarration } from '@/ai/dm/narration';
+import type { ReactNode } from 'react';
+import { handoffStart } from '@/ai/dm/narration';
+import { speechUnits } from '@/ai/voice/sentences';
+import type { SpeechUnit } from '@/ai/voice/sentences';
 import { describeCheck } from '@/engine/rules';
 import type { RollReport } from '@/engine/types';
 import type { ChatEntry, Session } from '@/game/session';
 import type { PlaytestFeedback } from '@/game/playtest';
 import { Icon } from '../Icon';
+import { Modal } from '../Modal';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
+import { TIPS, statTip } from '../glossary';
 import { useStoredImage } from '../useStoredImage';
 import { Avatar, DmAvatar } from './Avatar';
 import styles from './ChatLog.module.css';
@@ -17,7 +22,10 @@ interface Props {
   onRetry(): void;
   /** Sentence currently being read aloud: entry id and character range. */
   speaking?: { entryId: string; start: number; end: number } | null;
-  onOpenImage?(imageKey: string): void;
+  /** People in the game (party, cast, roster): used to tell who says a “quoted” line, as the voice does. */
+  names?: string[];
+  /** Reads one spoken line again (the speaker button on a quote). Absent: no buttons. */
+  onReplay?(entryId: string, unit: SpeechUnit): void;
   /** Playtest reactions per DM message; null hides the feedback buttons. */
   feedback?: Record<string, PlaytestFeedback> | null;
   onFeedback?(entryId: string, rating: PlaytestFeedback['rating'] | null, note?: string): void;
@@ -90,6 +98,22 @@ function outcome(report: RollReport): { label: string; tone: 'good' | 'bad' | 'c
 
 export function RollCard({ report, free }: { report: RollReport; free?: boolean }) {
   const c = report.check;
+  if (report.dice) {
+    return (
+      <div className={cx(styles.roll, styles.rollFree)} role="status" title={TIPS.plainDice}>
+        <Icon name="dice" size={18} className={styles.rollIcon} />
+        <div className={styles.rollBody}>
+          <span className={styles.rollTitle}>
+            <strong>{report.rollerName}</strong> · {report.dice} · {report.reason}
+          </span>
+          <span className={styles.rollMath}>
+            {c.dice.join(' + ')}
+            {c.modifier ? ` ${c.modifier > 0 ? '+' : '-'} ${Math.abs(c.modifier)}` : ''} = <strong>{c.total}</strong>
+          </span>
+        </div>
+      </div>
+    );
+  }
   if (free) {
     return (
       <div className={cx(styles.roll, styles.rollFree)} role="status">
@@ -113,7 +137,7 @@ export function RollCard({ report, free }: { report: RollReport; free?: boolean 
       <Icon name="dice" size={18} className={styles.rollIcon} />
       <div className={styles.rollBody}>
         <span className={styles.rollTitle}>
-          <strong>{report.rollerName}</strong> · {kind}
+          <strong>{report.rollerName}</strong> · <span title={statTip(report.stat)}>{kind}</span>
           {report.targetName ? ` on ${report.targetName}` : ''} · {report.reason}
         </span>
         <span className={styles.rollMath}>
@@ -135,50 +159,131 @@ export function RollCard({ report, free }: { report: RollReport; free?: boolean 
   );
 }
 
-function DmText({ entry, speaking }: { entry: Extract<ChatEntry, { kind: 'dm' }>; speaking: Props['speaking'] }) {
+/** The speaker button that reads a quoted line again. */
+function ReplayButton({ unit, onReplay, entryId }: { unit: SpeechUnit; entryId: string; onReplay: NonNullable<Props['onReplay']> }) {
+  return (
+    <button type="button" className={styles.replay} onClick={() => onReplay(entryId, unit)} aria-label={`Hear ${unit.speaker ?? 'this line'} again`} title="Hear this line again">
+      <Icon name="volume" size={13} />
+    </button>
+  );
+}
+
+/** Narration and «Name: line» speech from `text[from, to)`, with replay buttons on every spoken line. */
+function Region({ text, from, to, units, entryId, onReplay }: { text: string; from: number; to: number; units: SpeechUnit[]; entryId: string; onReplay: Props['onReplay'] }) {
+  const out: ReactNode[] = [];
+  let para: ReactNode[] = [];
+  let pos = from;
+  const flushText = (end: number) => {
+    const piece = text.slice(pos, end);
+    if (piece.trim()) para.push(para.length === 0 ? piece.trimStart() : piece);
+    pos = end;
+  };
+  const closePara = () => {
+    const last = para.length - 1;
+    if (last >= 0 && typeof para[last] === 'string') para[last] = (para[last] as string).trimEnd();
+    if (para.some((p) => typeof p !== 'string' || p.trim())) {
+      out.push(
+        <p key={`p${out.length}`} className={styles.narration}>
+          {para}
+        </p>,
+      );
+    }
+    para = [];
+  };
+  for (const unit of units) {
+    if (unit.speaker === null || unit.start < from || unit.end > to) continue;
+    flushText(unit.start);
+    if (text[unit.start] === '«') {
+      closePara();
+      out.push(
+        <blockquote key={`q${unit.start}`} className={styles.speech}>
+          <cite>
+            {unit.speaker}
+            {onReplay && <ReplayButton unit={unit} entryId={entryId} onReplay={onReplay} />}
+          </cite>
+          <span>{unit.text}</span>
+        </blockquote>,
+      );
+    } else {
+      para.push(
+        <span key={`i${unit.start}`} className={styles.quote}>
+          {text.slice(unit.start, unit.end)}
+          {onReplay && <ReplayButton unit={unit} entryId={entryId} onReplay={onReplay} />}
+        </span>,
+      );
+    }
+    pos = unit.end;
+  }
+  flushText(to);
+  closePara();
+  return <>{out}</>;
+}
+
+function DmText({ entry, speaking, streaming, names, onReplay }: { entry: Extract<ChatEntry, { kind: 'dm' }>; speaking: Props['speaking']; streaming: boolean; names: string[]; onReplay: Props['onReplay'] }) {
+  const text = entry.text;
   const range = speaking && speaking.entryId === entry.id ? speaking : null;
+  const split = streaming ? -1 : handoffStart(text);
+  const handoff = split > 0 ? split : text.length;
   if (range) {
     // While a sentence is being read aloud, show the raw text with that sentence highlighted.
+    const raw = (from: number, to: number) => {
+      const a = Math.max(from, Math.min(range.start, to));
+      const b = Math.max(a, Math.min(range.end, to));
+      return (
+        <p className={styles.narration}>
+          {text.slice(from, a).trimStart()}
+          {b > a && <mark className={styles.speaking}>{text.slice(a, b)}</mark>}
+          {text.slice(b, to).trimEnd()}
+        </p>
+      );
+    };
     return (
-      <p className={styles.narration}>
-        {entry.text.slice(0, range.start)}
-        <mark className={styles.speaking}>{entry.text.slice(range.start, range.end)}</mark>
-        {entry.text.slice(range.end)}
-      </p>
+      <>
+        {raw(0, handoff)}
+        {handoff < text.length && (
+          <>
+            <hr className={styles.handoffRule} />
+            {raw(handoff, text.length)}
+          </>
+        )}
+      </>
     );
   }
+  const units = speechUnits(text, true, names);
   return (
     <>
-      {parseNarration(entry.text).map((segment, i) =>
-        segment.type === 'speech' ? (
-          <blockquote key={i} className={styles.speech}>
-            <cite>{segment.speaker}</cite>
-            <span>{segment.text}</span>
-          </blockquote>
-        ) : (
-          <p key={i} className={styles.narration}>
-            {segment.text}
-          </p>
-        ),
+      <Region text={text} from={0} to={handoff} units={units} entryId={entry.id} onReplay={onReplay} />
+      {handoff < text.length && (
+        <div className={styles.handoff}>
+          <hr className={styles.handoffRule} />
+          <Region text={text} from={handoff} to={text.length} units={units} entryId={entry.id} onReplay={onReplay} />
+        </div>
       )}
     </>
   );
 }
 
-function ImageEntry({ entry, onOpen }: { entry: Extract<ChatEntry, { kind: 'image' }>; onOpen?: (key: string) => void }) {
+function ImageEntry({ entry }: { entry: Extract<ChatEntry, { kind: 'image' }> }) {
   const url = useStoredImage(entry.imageKey);
+  const [open, setOpen] = useState(false);
   if (!url) return null;
   return (
     <figure className={styles.image}>
-      <button type="button" onClick={() => onOpen?.(entry.imageKey)} aria-label={`Open image: ${entry.caption}`}>
+      <button type="button" onClick={() => setOpen(true)} aria-label={`Open image: ${entry.caption}`}>
         <img src={url} alt={entry.caption} />
       </button>
       <figcaption>{entry.caption}</figcaption>
+      {open && (
+        <Modal title={entry.caption} hideTitle wide onClose={() => setOpen(false)} className={styles.full}>
+          <img src={url} alt={entry.caption} className={styles.fullImage} />
+          <p className={styles.fullCaption}>{entry.caption}</p>
+        </Modal>
+      )}
     </figure>
   );
 }
 
-export function ChatLog({ session, busy, onRetry, speaking, onOpenImage, feedback, onFeedback }: Props) {
+export function ChatLog({ session, busy, onRetry, speaking, feedback, onFeedback, onReplay, names: knownNames }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const last = session.chat.at(-1);
@@ -201,6 +306,7 @@ export function ChatLog({ session, busy, onRetry, speaking, onOpenImage, feedbac
   }, []);
 
   const waiting = busy && !session.state.pendingRoll && last?.kind !== 'dm';
+  const names = knownNames ?? [...session.state.party.map((p) => p.name), ...session.state.roster.map((r) => r.name)];
 
   return (
     <div
@@ -223,7 +329,7 @@ export function ChatLog({ session, busy, onRetry, speaking, onOpenImage, feedbac
               <div key={entry.id} className={cx(styles.row, styles.dmRow)}>
                 <DmAvatar />
                 <div className={cx(styles.bubble, styles.dm)}>
-                  <DmText entry={entry} speaking={speaking} />
+                  <DmText entry={entry} speaking={speaking} streaming={busy && entry === last} names={names} onReplay={onReplay} />
                   {feedback && onFeedback && !(busy && entry === last) && <FeedbackBar entryId={entry.id} value={feedback[entry.id]} onFeedback={onFeedback} />}
                 </div>
               </div>
@@ -256,7 +362,7 @@ export function ChatLog({ session, busy, onRetry, speaking, onOpenImage, feedbac
               </div>
             );
           case 'image':
-            return <ImageEntry key={entry.id} entry={entry} onOpen={onOpenImage} />;
+            return <ImageEntry key={entry.id} entry={entry} />;
           case 'error':
             return (
               <div key={entry.id} className={styles.error} role="alert">

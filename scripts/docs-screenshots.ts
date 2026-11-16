@@ -84,7 +84,7 @@ try {
   await page.getByRole('button', { name: 'Lyra Vance' }).click();
   await page.getByRole('button', { name: 'she/her' }).click();
   await page.getByLabel('One striking feature').fill('a white streak in her hair from a lightning strike');
-  await page.locator('label[title="Wisdom"]').click();
+  await page.locator('label[title^="WIS:"]').click();
   await page.evaluate(() => window.scrollTo(0, 0));
   await shot('character-creation');
   await page.getByRole('button', { name: /Confirm and next player/ }).click();
@@ -95,7 +95,7 @@ try {
   await page.getByText('This character has a companion').click();
   await page.getByLabel('Companion name').fill('Biscuit');
   await page.getByLabel('What is it?').fill('a scruffy terrier with one torn ear');
-  await page.locator('label[title="Strength"]').click();
+  await page.locator('label[title^="STR:"]').click();
   await page.getByRole('button', { name: /Confirm and review party/ }).click();
   await page.getByRole('button', { name: /Begin the adventure/ }).click();
   await page.getByText('Lyra, what do you do?').waitFor();

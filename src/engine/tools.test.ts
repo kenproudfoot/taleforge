@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createScriptedRng, createSeededRng } from './rng';
-import { submitDice } from './rolls';
+import { submitDice, summarizeReport } from './rolls';
 import { createGame } from './state';
 import { CAMPAIGN, FACE, SHARPSHOOTER, member, testGame } from './testing';
 import { TOOL_DESCRIPTIONS, TOOL_NAMES, applyToolCall, toolJsonSchema } from './tools';
@@ -60,6 +60,29 @@ describe('request_roll', () => {
     expect(npc.report?.damage?.total).toBe(3);
     expect(npc.result).toMatchObject({ outcome: 'success', damage: 3 });
     expect(call(g, 'request_roll', { character: 'ghost', kind: 'check', reason: 'x' }).ok).toBe(false);
+  });
+});
+
+describe('request_dice', () => {
+  it('has a party member throw other dice, and the total comes back with no success or failure', () => {
+    const asked = ok(testGame(), 'request_dice', { character: 'Mags', dice: '2d4+1', reason: 'how many guards' });
+    expect(asked.pending).toMatchObject({ purpose: 'dice', die: 4, diceCount: 2, bonus: 1, rollerId: 'pc-mags' });
+    expect(() => submitDice(asked.state, [5, 1], rng)).toThrow(/valid d4/);
+    const done = submitDice(asked.state, [3, 4], rng);
+    expect(done.state.pendingRoll).toBeNull();
+    expect(done.report).toMatchObject({ dice: '2d4+1', reason: 'how many guards', check: { total: 8, dice: [3, 4] } });
+    expect(summarizeReport(done.report!)).toEqual({ roller: 'Mags', dice: '2d4+1', rolls: [3, 4], total: 8 });
+  });
+  it('rolls at once for the DM or an NPC, and rejects dice the tray cannot throw', () => {
+    const dm = ok(testGame(), 'request_dice', { dice: '1d6', reason: 'which way the wind blows' }, createScriptedRng([5]));
+    expect(dm.pending).toBeUndefined();
+    expect(dm.result).toEqual({ roller: 'The Dungeon Master', dice: '1d6', rolls: [5], total: 5 });
+    expect(dm.effects[0]).toMatchObject({ type: 'roll_report' });
+    expect(ok(testGame(), 'request_dice', { character: 'Goblin Scout', dice: '1d8-1', reason: 'x' }, createScriptedRng([1])).result).toMatchObject({ total: 0 });
+    expect(call(testGame(), 'request_dice', { character: 'Mags', dice: '1d100', reason: 'x' }).result.error).toMatch(/not a roll the table can make/);
+    expect(call(testGame(), 'request_dice', { character: 'Mags', dice: '9d6', reason: 'x' }).ok).toBe(false);
+    const busy = ok(testGame(), 'request_dice', { character: 'Mags', dice: '1d6', reason: 'x' }).state;
+    expect(call(busy, 'request_dice', { character: 'Lyra', dice: '1d6', reason: 'x' }).result.error).toMatch(/already pending/);
   });
 });
 
@@ -269,5 +292,43 @@ describe('end_campaign', () => {
     expect(call(g, 'end_campaign', { outcome: 'victory', epilogue_hint: 'x' }).result.error).toMatch(/pending roll/);
     const done = submitDice(g, [15], rng).state;
     expect(call(done, 'end_campaign', { outcome: 'victory', epilogue_hint: 'x' }).ok).toBe(true);
+  });
+});
+
+describe('forgiving names (local models)', () => {
+  it('targets a cast member who was never added, despite a typo and a non-breaking space', () => {
+    const out = ok(testGame(), 'request_roll', { character: 'Goblin Scuot', kind: 'save', stat: 'DEX', reason: 'dodge' });
+    expect(out.state.roster.map((e) => e.id)).toContain('goblin');
+    expect(chips(out)).toContain('Goblin Scout enters the scene');
+  });
+  it('brings a cast member in for damage by a slug with a typo', () => {
+    const out = ok(testGame(), 'apply_damage', { target: 'elder-marin', amount: 2, reason: 'falling beam' });
+    expect(out.state.roster.find((e) => e.id === 'elder')!.hp).toBeLessThan(out.state.roster.find((e) => e.id === 'elder')!.maxHp);
+  });
+  it('a party attack on an absent cast member brings them in', () => {
+    const out = ok(testGame(), 'request_roll', { character: 'pc-brann', kind: 'attack', target: 'Goblin Scout', reason: 'axe' });
+    expect(out.pending).toBeDefined();
+    expect(out.state.roster.some((e) => e.id === 'goblin' && e.present)).toBe(true);
+  });
+  it('roster_add accepts a misspelled cast id or the cast name', () => {
+    expect(ok(testGame(), 'roster_add', { id: 'goblinn' }).result.id).toBe('goblin');
+    expect(ok(testGame(), 'roster_add', { name: 'Elder Maren' }).result.id).toBe('elder');
+  });
+  it('does not guess between unrelated names', () => {
+    expect(call(testGame(), 'apply_damage', { target: 'Captain Hook', amount: 1, reason: 'x' }).ok).toBe(false);
+  });
+  it('a garbled party name fails with the ids to use, or resolves when there is one member', () => {
+    const out = call(testGame(), 'award_heroic_point', { character: 'VWe???..?????.....??…?', reason: 'great idea' });
+    expect(out.ok).toBe(false);
+    expect(String(out.result.error)).toContain('pc-lyra (Lyra)');
+    expect(String(out.result.error)).toContain('unreadable');
+    const solo = createGame(CAMPAIGN, [member(FACE, 'pc-solo', 'Vicky "Blank" Blank')]);
+    expect(ok(solo, 'award_heroic_point', { character: '…...…..…???', reason: 'x' }).state.party[0]!.heroicPoints).toBeGreaterThan(solo.party[0]!.heroicPoints);
+  });
+  it('matches names with curly or stray quotes and odd spaces', () => {
+    const g = createGame(CAMPAIGN, [member(FACE, 'pc-v', 'Vicky "Blank" Blank'), member(SHARPSHOOTER, 'pc-j', 'Jack O’Connor')]);
+    expect(ok(g, 'award_heroic_point', { character: 'Vicky “Blank” Blank', reason: 'x' }).state.party[0]!.heroicPoints).toBe(g.party[0]!.heroicPoints + 1);
+    expect(ok(g, 'award_heroic_point', { character: "Jack O'Connor", reason: 'x' }).state.party[1]!.heroicPoints).toBe(g.party[1]!.heroicPoints + 1);
+    expect(ok(g, 'award_heroic_point', { character: 'jack-oconnor', reason: 'x' }).ok).toBe(true);
   });
 });

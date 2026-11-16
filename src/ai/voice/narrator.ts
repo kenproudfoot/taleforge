@@ -34,6 +34,18 @@ export interface NarratorDeps {
   duck?(on: boolean): void;
   /** Injected in tests; defaults to Date.now. */
   now?(): number;
+  /** Injected in tests; defaults to a timer. Resolves early when the signal aborts. */
+  sleep?(ms: number, signal: AbortSignal): Promise<void>;
+}
+
+function timerSleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(resolve, ms);
+    signal.addEventListener('abort', () => {
+      clearTimeout(timer);
+      resolve();
+    });
+  });
 }
 
 interface Item {
@@ -150,6 +162,7 @@ export class Narrator {
         const item = this.queue.shift()!;
         this.current = item;
         const utterance = await item.prepared;
+        if (utterance && item.unit.pause && !item.abort.signal.aborted) await (this.deps.sleep ?? timerSleep)(item.unit.pause, item.abort.signal);
         if (utterance && !item.abort.signal.aborted) {
           this.deps.onSpeaking({ entryId: item.entryId, start: item.unit.start, end: item.unit.end });
           await utterance.play();
@@ -165,6 +178,17 @@ export class Narrator {
 
   get speaking(): boolean {
     return this.running;
+  }
+
+  /**
+   * Reads one line again on request (the speaker button on a quote): whatever is playing stops, and the line
+   * is spoken even when the voice is switched off.
+   */
+  replay(entryId: string, unit: SpeechUnit): void {
+    for (const item of this.queue) item.abort.abort();
+    this.queue = [];
+    this.current?.abort.abort();
+    this.enqueue(entryId, { ...unit, pause: undefined });
   }
 
   /** Skips the line being read and moves on to the next. */

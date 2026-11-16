@@ -5,6 +5,8 @@ import controls from '@/ui/controls.module.css';
 import { cx } from '@/ui/cx';
 import styles from './DiceTray.module.css';
 import type { DieType } from './geometry';
+import { buttonThrow, throwFromGesture } from './gesture';
+import type { PointerSample } from './gesture';
 import { planRoll } from './plan';
 import type { RollPlan } from './plan';
 import { quickRoll } from './roll';
@@ -44,7 +46,8 @@ function DiceTray({ request, onClose, onImpact }: { request: Request; onClose():
   const canvas = useRef<HTMLCanvasElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const scene = useRef<DiceScene | null>(null);
-  const drag = useRef<{ x: number; y: number; t: number } | null>(null);
+  const drag = useRef<PointerSample[] | null>(null);
+  const [held, setHeld] = useState(false);
   const [phase, setPhase] = useState<'loading' | 'ready' | 'rolling' | 'done'>('loading');
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
@@ -89,13 +92,14 @@ function DiceTray({ request, onClose, onImpact }: { request: Request; onClose():
   }, []);
 
   const throwDice = useCallback(
-    async (strength: number, direction: number) => {
+    async ({ strength, direction }: { strength: number; direction: number }) => {
       if (phaseRef.current !== 'ready' || !scene.current) return;
       setPhase('rolling');
+      const origin = scene.current.handPosition();
       const { simulateUntilFlat } = await import('./sim');
       const sim = simulateUntilFlat(
         plan.dice.map((d) => d.type as DieType),
-        { strength, direction },
+        { strength, direction, origin },
         randomUnit,
       );
       await scene.current?.play(plan.dice, sim, onImpact);
@@ -109,7 +113,7 @@ function DiceTray({ request, onClose, onImpact }: { request: Request; onClose():
     const onKey = (e: KeyboardEvent) => {
       if (e.code === 'Space' || e.key === 'Enter') {
         e.preventDefault();
-        void throwDice(0.8 + randomUnit() * 0.5, (randomUnit() - 0.5) * 0.5);
+        void throwDice(buttonThrow(randomUnit));
       }
     };
     window.addEventListener('keydown', onKey);
@@ -121,31 +125,41 @@ function DiceTray({ request, onClose, onImpact }: { request: Request; onClose():
     <div ref={root} className={styles.overlay} role="dialog" aria-modal="true" aria-label="Dice tray">
       <canvas
         ref={canvas}
-        className={cx(styles.canvas, phase === 'ready' && styles.grab)}
+        className={cx(styles.canvas, phase === 'ready' && styles.grab, held && styles.grabbing)}
         onPointerDown={(e) => {
-          drag.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+          if (phaseRef.current !== 'ready' || !scene.current) return;
+          // Keep the pointer even if it leaves the canvas, so letting go anywhere throws.
+          e.currentTarget.setPointerCapture?.(e.pointerId);
+          drag.current = [{ x: e.clientX, y: e.clientY, t: performance.now() }];
+          scene.current.hold(...scene.current.pointerToTray(e.clientX, e.clientY));
+          setHeld(true);
+        }}
+        onPointerMove={(e) => {
+          const samples = drag.current;
+          if (!samples || !scene.current) return;
+          samples.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+          if (samples.length > 40) samples.splice(0, samples.length - 40);
+          scene.current.hold(...scene.current.pointerToTray(e.clientX, e.clientY));
         }}
         onPointerUp={(e) => {
-          const start = drag.current;
+          const samples = drag.current;
           drag.current = null;
-          if (!start) return;
-          const dx = e.clientX - start.x;
-          const dy = e.clientY - start.y;
-          const dt = Math.max(16, performance.now() - start.t);
-          const speed = Math.hypot(dx, dy) / dt; // pixels per millisecond
-          const dragged = Math.hypot(dx, dy) > 12;
-          // A flick throws harder and in the direction of the drag; a plain click is a medium throw.
-          const strength = dragged ? Math.min(1.6, 0.55 + speed * 0.9) : 0.8 + randomUnit() * 0.4;
-          const direction = dragged ? Math.max(-0.7, Math.min(0.7, Math.atan2(dx, -dy))) : (randomUnit() - 0.5) * 0.5;
-          void throwDice(strength, direction);
+          setHeld(false);
+          if (!samples) return;
+          samples.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+          void throwDice(throwFromGesture(samples, randomUnit));
+        }}
+        onPointerCancel={() => {
+          drag.current = null;
+          setHeld(false);
         }}
       />
       <div className={styles.hud} aria-live="assertive">
         {phase === 'loading' && <span className={styles.hint}>Fetching the dice…</span>}
         {phase === 'ready' && (
           <>
-            <span className={styles.hint}>Click or flick the dice, or press Space, to throw</span>
-            <button type="button" className={cx(controls.btn, controls.primary, controls.large)} onClick={() => void throwDice(0.8 + randomUnit() * 0.5, (randomUnit() - 0.5) * 0.5)} autoFocus>
+            <span className={styles.hint}>{held ? 'Flick up and let go to throw' : 'Press anywhere to pick up the dice, then flick and let go. Or press Space.'}</span>
+            <button type="button" className={cx(controls.btn, controls.primary, controls.large)} onClick={() => void throwDice(buttonThrow(randomUnit))} autoFocus>
               <Icon name="dice" size={22} /> Throw the {label}
             </button>
           </>

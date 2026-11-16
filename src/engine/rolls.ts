@@ -6,6 +6,7 @@ import { findCombatant, findPartyMember, findRosterEntry } from './state';
 import type {
   CheckResult,
   DamageResult,
+  DieSize,
   Effect,
   GameState,
   PartyMember,
@@ -152,6 +153,11 @@ export function submitDice(state: GameState, dice: number[], rng: Rng): RollStep
   const pending = next.pendingRoll!;
   const member = next.party.find((m) => m.id === pending.rollerId)!;
 
+  if (pending.purpose === 'dice') {
+    pending.main = plainCheck(dice, pending.bonus);
+    return finish(next, pending, null);
+  }
+
   if (pending.stage === 'damage') {
     const bonusRoll = pending.damageBonusDice ? rollDice(pending.damageBonusDice, rng).total : 0;
     const damage = resolveDamage({
@@ -248,6 +254,7 @@ function finish(next: GameState, pending: PendingRoll, damage: DamageResult | nu
     heroicSpent: pending.heroicSpent,
     notes: pending.notes,
     consequences,
+    ...(pending.purpose === 'dice' ? { dice: diceLabel(pending.diceCount, pending.die, pending.bonus) } : {}),
   };
   next.pendingRoll = null;
   return { state: next, report, effects: [{ type: 'roll_report', report }] };
@@ -321,13 +328,94 @@ function npcRoll(state: GameState, entry: RosterEntry, req: RollRequest, rng: Rn
 }
 
 function unknownName(state: GameState, ref: string): string {
-  const names = [...state.party.map((p) => p.name), ...state.roster.filter((e) => e.present).map((e) => e.name)];
-  return `No one called "${ref}" is in the scene. Present: ${names.join(', ') || 'nobody'}.`;
+  const names = [...state.party, ...state.roster.filter((e) => e.present)].map((e) => `${e.name} [${e.id}]`);
+  return `No one called "${ref}" is in the scene. Present (name [id]): ${names.join(', ') || 'nobody'}.`;
+}
+
+/** Dice the tray can throw for a plain roll. */
+export const PLAIN_DICE = [4, 6, 8, 10, 12, 20] as const;
+export const MAX_PLAIN_DICE = 4;
+
+function diceLabel(count: number, die: number, modifier: number): string {
+  return `${count}d${die}${modifier ? (modifier > 0 ? `+${modifier}` : String(modifier)) : ''}`;
+}
+
+/** A plain roll as a check record: the total of the dice plus the modifier, with no target number. */
+function plainCheck(dice: number[], modifier: number): CheckResult {
+  const total = dice.reduce((a, b) => a + b, 0) + modifier;
+  return { dice, natural: dice[0] ?? 0, mode: 'normal', modifier, proficiency: 0, bonus: 0, total, dc: 0, success: true, crit: false, complication: false };
+}
+
+export interface DiceRequest {
+  /** A party member rolls it themselves; anyone else (or nobody) means the engine rolls it at once. */
+  character?: string;
+  dice: string;
+  reason: string;
+}
+
+/**
+ * A plain roll of non-d20 dice ("1d6 to see how many guards", "2d4 on the chaos table"). Party members
+ * throw it themselves; otherwise the engine rolls it. There is no success or failure: the DM reads the total.
+ */
+export function requestDice(state: GameState, req: DiceRequest, rng: Rng): RollRequestResult {
+  if (state.pendingRoll) return { ok: false, error: `A roll is already pending for ${state.pendingRoll.rollerName}.` };
+  const n = parseDice(req.dice);
+  if (!n || n.count < 1 || n.count > MAX_PLAIN_DICE || !(PLAIN_DICE as readonly number[]).includes(n.sides)) {
+    return { ok: false, error: `"${req.dice}" is not a roll the table can make. Use 1 to ${MAX_PLAIN_DICE} dice of d${PLAIN_DICE.join('/d')}, e.g. "1d6" or "2d4+1".` };
+  }
+  const member = req.character ? findPartyMember(state, req.character) : undefined;
+  const next = structuredClone(state);
+  next.rollCounter += 1;
+  const id = `roll-${next.rollCounter}`;
+  if (member && member.status === 'ok') {
+    const pending: PendingRoll = {
+      id,
+      rollerId: member.id,
+      rollerName: member.name,
+      rollerIsParty: true,
+      kind: 'check',
+      stat: 'WIS',
+      dc: null,
+      targetId: null,
+      targetName: null,
+      reason: req.reason,
+      mode: 'normal',
+      purpose: 'dice',
+      stage: 'main',
+      die: n.sides as DieSize,
+      diceCount: n.count,
+      bonus: n.modifier,
+      heroicSpent: 'none',
+      main: null,
+      notes: [],
+      damageBonusDice: null,
+    };
+    next.pendingRoll = pending;
+    return { ok: true, state: next, deferred: true, pending, effects: [{ type: 'roll_requested', rollId: id }] };
+  }
+  const rolled = rollDice(n, rng);
+  const report: RollReport = {
+    id,
+    rollerId: 'dm',
+    rollerName: 'The Dungeon Master',
+    kind: 'check',
+    stat: 'WIS',
+    reason: req.reason,
+    targetName: null,
+    check: plainCheck(rolled.rolls, n.modifier),
+    damage: null,
+    heroicSpent: 'none',
+    notes: [],
+    consequences: [],
+    dice: diceLabel(n.count, n.sides, n.modifier),
+  };
+  return { ok: true, state: next, deferred: false, report, effects: [{ type: 'roll_report', report }] };
 }
 
 /** Compact, model-friendly summary of a finished roll, used as the tool result. */
 export function summarizeReport(report: RollReport): Record<string, unknown> {
   const c = report.check;
+  if (report.dice) return { roller: report.rollerName, dice: report.dice, rolls: c.dice, total: c.total };
   return {
     roller: report.rollerName,
     kind: report.kind,

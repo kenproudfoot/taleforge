@@ -33,9 +33,13 @@ export interface DirectorDeps {
   onPainted?(kind: string, ms: number, ok: boolean, error?: string): void;
   /** Injected in tests to make retries instant. */
   sleep?(ms: number, signal: AbortSignal): Promise<void>;
+  /** Injected in tests; defaults to Math.random. Decides when the party appears in a scene shot. */
+  random?(): number;
 }
 
 const SCENE_PREFETCH = 2;
+/** How often an establishing shot also shows the party somewhere in it. */
+export const PARTY_IN_SCENE_CHANCE = 0.5;
 
 /**
  * The Art Director: decides what to paint and when, and feeds finished images into the session.
@@ -67,7 +71,9 @@ export class ArtDirector {
   /** Paints a subject (or returns the cached image) and resolves with its cache key. */
   private paint(subject: ArtSubject, size: ImageSize, priority: number, references: string[] = []): Promise<string> {
     const { provider, id, model } = this.deps.provider;
-    const key = imageKey({ prompt: subjectSignature(subject, this.deps.pack), provider: id, model, size, references });
+    // Keyed by game too: every new game gets its own pictures, while reopening a saved game reuses them.
+    const game = this.session()?.id ?? '';
+    const key = imageKey({ prompt: `${game}|${subjectSignature(subject, this.deps.pack)}`, provider: id, model, size, references });
     return this.queue.add({
       key,
       priority,
@@ -97,6 +103,17 @@ export class ArtDirector {
     });
   }
 
+  /** Counts one more showing of a place or character and returns the new count. */
+  private visit(id: string): number {
+    const n = (this.session()?.images.visits?.[id] ?? 0) + 1;
+    this.patchImages((images) => ({ ...images, visits: { ...images.visits, [id]: n } }));
+    return n;
+  }
+
+  private random(): number {
+    return (this.deps.random ?? Math.random)();
+  }
+
   private report(error: unknown): void {
     if (this.reported || this.disposed) return;
     if (error instanceof Error && error.message === 'cancelled') return;
@@ -117,8 +134,10 @@ export class ArtDirector {
     const session = this.session();
     if (!session) return;
     for (const member of session.state.party) this.portrait(member.id);
-    for (const entry of session.state.roster.filter((e) => e.present)) this.npc(entry.id);
-    this.scene(session.state.locationId, true);
+    // Reopening a saved game is not a new visit: only paint what is still missing.
+    for (const entry of session.state.roster.filter((e) => e.present && !session.images.portraits[e.id])) this.npc(entry.id);
+    const here = session.state.locationId;
+    this.scene(here, true, !(here && session.images.visits?.[`scene:${here}`]));
   }
 
   private portrait(memberId: string): void {
@@ -161,25 +180,37 @@ export class ArtDirector {
       .catch((e: unknown) => this.report(e));
   }
 
+  /** Paints an NPC as they enter. Each later entrance gets a fresh portrait (the old one shows meanwhile). */
   private npc(entryId: string): void {
     const session = this.session();
     const entry = session?.state.roster.find((e) => e.id === entryId);
-    if (!session || !entry || session.images.portraits[entryId]) return;
-    this.paint({ kind: 'npc', entry }, 'square', PRIORITY.npc)
+    if (!session || !entry) return;
+    const visit = this.visit(`npc:${entryId}`);
+    // The first entrance uses a portrait painted ahead of time (the boss), if there is one.
+    if (visit === 1 && session.images.portraits[entryId]) return;
+    this.paint({ kind: 'npc', entry, variation: visit }, 'square', PRIORITY.npc)
       .then((key) => this.patchImages((images) => ({ ...images, portraits: { ...images.portraits, [entryId]: key } })))
       .catch((e: unknown) => this.report(e));
   }
 
-  /** Paints a location. The current one is shown when ready; neighbours are prefetched quietly. */
-  private scene(locationId: string | null, current: boolean): void {
+  /**
+   * Paints a location. The current one is shown when ready; neighbours are prefetched quietly for the first
+   * visit. Every return visit paints a fresh view (the previous picture shows meanwhile). Some shots include
+   * the party somewhere in the frame.
+   */
+  private scene(locationId: string | null, current: boolean, arrive = current): void {
     const session = this.session();
     const location = this.location(locationId);
     if (!session || !location) return;
+    const visit = arrive ? this.visit(`scene:${location.id}`) : (session.images.visits?.[`scene:${location.id}`] ?? 1);
     const existing = session.images.scenes[location.id];
-    if (existing) {
-      if (current) this.patchImages((images) => ({ ...images, current: existing }));
-    } else {
-      this.paint({ kind: 'scene', location }, 'landscape', current ? PRIORITY.currentScene : PRIORITY.nextScene)
+    if (existing && current) this.patchImages((images) => ({ ...images, current: existing }));
+    if (!existing || (arrive && visit > 1)) {
+      const able = session.state.party.filter((p) => p.status !== 'out');
+      const withParty = able.length > 0 && this.random() < PARTY_IN_SCENE_CHANCE;
+      const shown = withParty ? [...able.filter((m) => session.images.portraits[m.id]), ...able.filter((m) => !session.images.portraits[m.id])] : [];
+      const refs = shown.map((m) => session.images.portraits[m.id]).filter((k): k is string => !!k);
+      this.paint({ kind: 'scene', location, members: shown, variation: visit }, 'landscape', current ? PRIORITY.currentScene : PRIORITY.nextScene, refs)
         .then((key) => {
           this.patchImages((images) => ({
             ...images,

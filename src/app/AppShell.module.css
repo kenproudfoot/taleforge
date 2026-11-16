@@ -78,3 +78,13 @@
     display: none;
   }
 }
+
+.back {
+  background: none;
+  border: 1px solid var(--line-strong);
+  cursor: pointer;
+  font: inherit;
+}
+.brand {
+  margin-right: auto;
+}

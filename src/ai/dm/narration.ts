@@ -28,6 +28,42 @@ export function plainNarration(text: string): string {
     .join(' ');
 }
 
+/**
+ * Where the DM's closing hand-off ("Eddie, do you climb or fight?") starts, so it can be set apart from the
+ * narration on screen and in the voice. That is the last paragraph when the reply has several and it ends in a
+ * question, otherwise the final question sentence. -1 when the reply does not end with a narrator question.
+ */
+export function handoffStart(text: string): number {
+  const body = text.trimEnd();
+  if (!/\?["'”’)]*$/.test(body) || body.endsWith('»')) return -1;
+  const paragraph = body.lastIndexOf('\n\n');
+  if (paragraph > 0) {
+    const start = paragraph + 2 + (body.slice(paragraph + 2).length - body.slice(paragraph + 2).trimStart().length);
+    const last = body.slice(start);
+    // A short closing paragraph that is all narrator (no NPC line inside) is the hand-off.
+    if (last.length <= 450 && !last.includes('«') && body.slice(0, paragraph).trim()) return start;
+  }
+  // One paragraph: the final sentence. Sentence ends inside «speech» markers do not count.
+  let start = -1;
+  let inSpeech = false;
+  for (let i = 0; i < body.length - 1; i++) {
+    const c = body[i]!;
+    if (c === '«') inSpeech = true;
+    else if (c === '»') inSpeech = false;
+    else if (!inSpeech && /[.!?…]/.test(c) && /\s/.test(body[i + 1]!)) {
+      let j = i + 1;
+      while (j < body.length && /\s/.test(body[j]!)) j++;
+      start = j;
+    }
+  }
+  if (start <= 0 || start >= body.length) return -1;
+  // Don't split a quoted line in two.
+  const before = body.slice(0, start);
+  if ((before.match(/«/g)?.length ?? 0) !== (before.match(/»/g)?.length ?? 0)) return -1;
+  if ((before.match(/[“”"]/g)?.length ?? 0) % 2 === 1) return -1;
+  return start;
+}
+
 function escapeRegExp(text: string): string {
   return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

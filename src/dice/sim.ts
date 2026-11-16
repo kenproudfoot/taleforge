@@ -7,6 +7,13 @@ export interface ThrowParams {
   strength: number;
   /** Throw direction on the table plane in radians (0 = away from the player). */
   direction: number;
+  /** Where the hand is when it lets go (x, z on the tray). Default: the near edge, centred. */
+  origin?: [number, number];
+}
+
+/** The point the hand can reach: inside the tray, clear of the walls. */
+export function clampToTray(x: number, z: number): [number, number] {
+  return [Math.max(-TRAY_HALF_WIDTH + 1.2, Math.min(TRAY_HALF_WIDTH - 1.2, x)), Math.max(-TRAY_HALF_DEPTH + 1.2, Math.min(TRAY_HALF_DEPTH - 1, z))];
 }
 
 export interface BodyFrame {
@@ -24,7 +31,11 @@ export interface Simulation {
   settled: boolean;
 }
 
-export const TRAY = { halfWidth: 5.2, halfDepth: 3.4 };
+const TRAY_HALF_WIDTH = 5.2;
+const TRAY_HALF_DEPTH = 3.4;
+export const TRAY = { halfWidth: TRAY_HALF_WIDTH, halfDepth: TRAY_HALF_DEPTH };
+/** Where the dice wait in the hand before a throw. */
+export const HAND = { x: 0, y: 1.6, z: TRAY_HALF_DEPTH - 1.4 };
 const STEP = 1 / 60;
 const MAX_STEPS = 60 * 7;
 const FLAT_ENOUGH = 0.985;
@@ -71,19 +82,21 @@ export function simulateThrow(types: DieType[], params: ThrowParams, random: () 
   const impacts: Simulation['impacts'] = [];
   let step = 0;
   const strength = Math.max(0.4, Math.min(1.6, params.strength));
+  const [ox, oz] = clampToTray(...(params.origin ?? [HAND.x, HAND.z]));
   const bodies = types.map((type, i) => {
     const b = body(type, diceMaterial);
-    const spread = (i - (types.length - 1) / 2) * 2.4;
-    b.position.set(spread + (random() - 0.5) * 0.6, 2.2 + random() * 0.8, TRAY.halfDepth - 1.4);
+    const spread = (i - (types.length - 1) / 2) * 1.5;
+    const [x, z] = clampToTray(ox + spread + (random() - 0.5) * 0.4, oz + (random() - 0.5) * 0.4);
+    b.position.set(x, 2.2 + random() * 0.8, z);
     // A uniformly random starting orientation.
     const u1 = random();
     const u2 = random() * Math.PI * 2;
     const u3 = random() * Math.PI * 2;
     b.quaternion.set(Math.sqrt(1 - u1) * Math.sin(u2), Math.sqrt(1 - u1) * Math.cos(u2), Math.sqrt(u1) * Math.sin(u3), Math.sqrt(u1) * Math.cos(u3));
     const angle = params.direction + (random() - 0.5) * 0.5;
-    const speed = (5.5 + random() * 2.5) * strength;
-    b.velocity.set(Math.sin(angle) * speed, 1.5 + random() * 2, -Math.cos(angle) * speed);
-    const spin = (10 + random() * 14) * strength;
+    const speed = (7 + random() * 2.5) * strength;
+    b.velocity.set(Math.sin(angle) * speed, 2.5 + random() * 2.5, -Math.cos(angle) * speed);
+    const spin = (14 + random() * 14) * strength;
     b.angularVelocity.set((random() - 0.5) * spin, (random() - 0.5) * spin, (random() - 0.5) * spin);
     b.addEventListener('collide', (event: { contact: CANNON.ContactEquation }) => {
       const impact = Math.abs(event.contact.getImpactVelocityAlongNormal());
