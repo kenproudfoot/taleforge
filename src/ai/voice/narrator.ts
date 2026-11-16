@@ -21,6 +21,8 @@ export interface NarratorConfig {
   overrides: Record<string, string>;
   /** Lower-cased NPC name -> free-text voice hint from the campaign cast. */
   hints: Record<string, string>;
+  /** People in the game (party, cast, roster), used to tell who says a “quoted” line. */
+  names?: string[];
 }
 
 export interface NarratorDeps {
@@ -88,7 +90,7 @@ export class Narrator {
   /** Feeds the current text of a DM chat entry. `done` means no more text will arrive for it. */
   feed(entryId: string, text: string, done: boolean): void {
     const config = this.deps.config();
-    const units = speechUnits(text, done);
+    const units = speechUnits(text, done, config.names);
     const from = this.consumed.get(entryId) ?? 0;
     this.consumed.set(entryId, units.length);
     if (!config.enabled || this.silenced) return;

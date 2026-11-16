@@ -34,7 +34,9 @@ export function useNarration() {
     const { pack, session } = useGame.getState();
     const out: Record<string, string> = {};
     for (const c of pack?.cast ?? []) if (c.voice) out[c.name.toLowerCase()] = c.voice;
-    return { hints: out, overrides: session?.voiceCast ?? {} };
+    const state = session?.state;
+    const names = [...(state?.party ?? []).map((p) => p.name), ...(pack?.cast ?? []).map((c) => c.name), ...(state?.roster ?? []).map((r) => r.name)];
+    return { hints: out, overrides: session?.voiceCast ?? {}, names: [...new Set(names.filter(Boolean))] };
   }, []);
 
   if (!narrator.current) {

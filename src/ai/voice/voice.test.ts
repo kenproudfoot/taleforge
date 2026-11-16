@@ -59,6 +59,39 @@ describe('speechUnits', () => {
     expect(speechUnits('Dr. Holt met Mr. J. Varr at 3.5 fathoms. Then... silence.', true).map((u) => u.text)).toEqual(['Dr. Holt met Mr. J. Varr at 3.5 fathoms.', 'Then...', 'silence.']);
     expect(speechUnits('"Run!" she cries. (Too late.) Gone', true).map((u) => u.text)).toEqual(['"Run!"', 'she cries.', '(Too late.)', 'Gone']);
   });
+  it('voices “quoted” lines too, guessing the speaker from the sentence before them', () => {
+    // How a local model writes dialogue when it skips «Name: line» (from a real playtest).
+    const text =
+      'The newsboy grins, eyes darting past Jack. “Everyone’s a mess,” he says, then darts away. “I didn’t see much.”\n\n' +
+      'Vicky slides into a booth and leans toward the bartender. “I heard something about the night crew,” she says. ' +
+      'The bartender nods, then leans in. "They run from Dock 9 at midnight." Nothing matches “4-7-2-3.” A sign reads “Insured Property Log.”';
+    const units = speechUnits(text, true, ['Vicky Blank', 'Jack O’Connor']);
+    expect(units.filter((u) => u.speaker).map((u) => [u.speaker, u.text])).toEqual([
+      ['the newsboy', 'Everyone’s a mess,'],
+      ['the newsboy', 'I didn’t see much.'],
+      ['Vicky Blank', 'I heard something about the night crew,'],
+      ['the bartender', 'They run from Dock 9 at midnight.'],
+    ]);
+    // Short quotes and titles stay with the narrator.
+    expect(units.find((u) => u.text.includes('4-7-2-3'))?.speaker).toBeNull();
+    expect(units.find((u) => u.text.includes('Insured'))?.speaker).toBeNull();
+    for (const u of units.filter((x) => x.speaker)) expect(text.slice(u.start + 1, u.end - 1)).toBe(u.text);
+    // A quote nobody is named before still gets a character voice, not the narrator's.
+    expect(speechUnits('“Who goes there, stranger?” comes a call.', true)[0]!.speaker).toBe('someone');
+  });
+  it('waits for a quote to close while streaming, and never changes a unit already given', () => {
+    const full = 'The old man coughs. “Not tonight, friend,” he says. “The tide is wrong.” Rain.';
+    let previous: Array<[string | null, string]> = [];
+    for (let i = 1; i <= full.length; i++) {
+      const now = speechUnits(full.slice(0, i), false).map((u): [string | null, string] => [u.speaker, u.text]);
+      expect(now.slice(0, previous.length)).toEqual(previous);
+      previous = now;
+    }
+    expect(speechUnits(full, true).map((u) => u.speaker)).toEqual([null, 'the old man', null, 'the old man', null]);
+    expect(speechUnits('He says “wait for', false).map((u) => u.text)).toEqual(['He says']);
+    // An unclosed quote does not swallow the next paragraph.
+    expect(speechUnits('She says “wait for me\n\nThe door shuts.', true).map((u) => u.text)).toEqual(['She says', '“wait for me', 'The door shuts.']);
+  });
   it('skips units with nothing to say and cleans markdown', () => {
     expect(speechUnits('... \n\n *** ', true)).toEqual([]);
     expect(cleanForSpeech('**Bold** and _soft_\n- a list item\n# Heading «x»')).toBe('Bold and soft a list item Heading x');

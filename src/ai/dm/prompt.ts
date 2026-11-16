@@ -100,6 +100,7 @@ export function buildSystemPrompt(core: CoreContent, pack: CampaignPack, state: 
       'Every player message arrives with the current game state and a pacing note. Trust that state over your memory.',
       'Reply with spoken narration (2-5 sentences), using tools for every roll and every change to the game. End by addressing a character by name.',
       'Before you narrate, check: is someone attacking or attempting something risky? Then call request_roll first and wait for the result. Has the party arrived somewhere new? Then call scene_change first.',
+      'When anyone speaks aloud, write the line as «Name: words», never in plain quotation marks, so the right voice reads it.',
     ].join('\n'),
   ].join('\n\n');
   return [{ text, cache: true }];
