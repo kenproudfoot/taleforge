@@ -5,15 +5,18 @@ import type { Issue } from '@/content/issues';
 import { deleteImportedCampaign, fetchBundledTrackIds, listCampaigns, loadCampaign, saveImportedCampaign } from '@/content/library';
 import type { LibraryEntry } from '@/content/library';
 import type { CampaignPack } from '@/content/pack';
-import { loadCatalog } from '@/audio/music';
+import { audioUrl, loadCatalog } from '@/audio/music';
+import { previewSource, previewVolume } from '@/audio/preview';
+import { useSettings } from '@/app/settingsStore';
 import { resolveMusic } from '@/audio/tracks';
-import type { Catalog } from '@/audio/tracks';
+import type { Catalog, MusicSource } from '@/audio/tracks';
 import { MOODS } from '@/engine/types';
 import type { Mood } from '@/engine/types';
-import { listUploads, removeUpload, saveUpload } from '@/storage/audioUploads';
+import { getUpload, listUploads, removeUpload, saveUpload } from '@/storage/audioUploads';
 import audioStyles from '../audio/audio.module.css';
 import { CampaignCover } from '../CampaignCover';
 import { Icon } from '../Icon';
+import { Modal } from '../Modal';
 import controls from '../controls.module.css';
 import { cx } from '../cx';
 import { filesFromDrop, filesFromInput } from '../dropFiles';
@@ -194,7 +197,7 @@ export function CampaignLibraryPage() {
       <section aria-label="Campaigns" className={styles.grid}>
         {campaigns?.map((c) => (
           <article key={`${c.source}:${c.id}`} className={styles.card} style={themeStyle(c.theme)}>
-            <CampaignCover title={c.title} genre={c.genre} theme={c.theme} imageUrl={c.keyArtUrl} />
+            <CampaignCover title={c.title} genre={c.genre} theme={c.theme} imageUrl={c.keyArtUrl} bonus={c.bonus} />
             <div className={styles.cardBody}>
               <div className={styles.cardMeta}>
                 <span className={controls.chip}>{c.genre.replace(/-/g, ' ')}</span>
@@ -213,10 +216,10 @@ export function CampaignLibraryPage() {
                 <button
                   type="button"
                   className={cx(controls.btn, controls.small)}
-                  aria-expanded={openId === c.id}
-                  onClick={() => setOpenId(openId === c.id ? null : c.id)}
+                  aria-haspopup="dialog"
+                  onClick={() => setOpenId(c.id)}
                 >
-                  <Icon name="book" size={15} /> {openId === c.id ? 'Hide details' : 'Details'}
+                  <Icon name="book" size={15} /> Details
                 </button>
                 {c.source === 'imported' && (
                   <button type="button" className={cx(controls.btn, controls.small, controls.danger)} onClick={() => void remove(c)}>
@@ -224,7 +227,13 @@ export function CampaignLibraryPage() {
                   </button>
                 )}
               </div>
-              {openId === c.id && <CampaignDetails id={c.id} />}
+              {openId === c.id && (
+                // A dialog rather than an inline panel, so opening one card's details never stretches the
+                // cards beside it (they share row heights).
+                <Modal title={c.title} wide className={styles.detailsDialog} onClose={() => setOpenId(null)}>
+                  <CampaignDetails id={c.id} />
+                </Modal>
+              )}
             </div>
           </article>
         ))}
@@ -254,12 +263,13 @@ function IssueList({ issues }: { issues: Issue[] }) {
 }
 
 function CampaignDetails({ id }: { id: string }) {
-  const [pack, setPack] = useState<CampaignPack | null>(null);
+  const [loaded, setLoaded] = useState<{ pack: CampaignPack; assetUrl(path: string): string | null } | null>(null);
+  const pack = loaded?.pack ?? null;
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     loadCampaign(id)
-      .then((c) => live && setPack(c.pack))
+      .then((c) => live && setLoaded(c))
       .catch((e: unknown) => live && setError(e instanceof Error ? e.message : String(e)));
     return () => {
       live = false;
@@ -296,7 +306,7 @@ function CampaignDetails({ id }: { id: string }) {
             {pack.world.locations.length} locations · {pack.cast.length} characters · {m.endings.length} endings
           </dd>
         </div>
-        <MusicList pack={pack} />
+        <MusicList pack={pack} assetUrl={loaded!.assetUrl} />
         {pack.rules.resources.length > 0 && (
           <div>
             <dt>Special rules</dt>
@@ -308,10 +318,56 @@ function CampaignDetails({ id }: { id: string }) {
   );
 }
 
-function MusicList({ pack }: { pack: CampaignPack }) {
+/** Plays one mood's track at a time for a quick listen; stops when another starts or the list closes. */
+function usePreview() {
+  const musicVolume = useSettings((s) => s.settings.audio.musicVolume);
+  const [playing, setPlaying] = useState<Mood | null>(null);
+  const current = useRef<{ audio: HTMLAudioElement; revoke: string | null } | null>(null);
+  const token = useRef(0);
+  const stop = useCallback(() => {
+    token.current += 1;
+    const c = current.current;
+    current.current = null;
+    if (c) {
+      c.audio.pause();
+      c.audio.removeAttribute('src');
+      if (c.revoke) URL.revokeObjectURL(c.revoke);
+    }
+    setPlaying(null);
+  }, []);
+  useEffect(() => stop, [stop]);
+  const play = useCallback(
+    async (mood: Mood, source: MusicSource, assetUrl: (path: string) => string | null): Promise<void> => {
+      stop();
+      const mine = token.current;
+      const found = await previewSource(source, { trackUrl: audioUrl, assetUrl, upload: getUpload });
+      if (!found) throw new Error(`The ${mood} track could not be found.`);
+      if (mine !== token.current) {
+        if (found.revoke) URL.revokeObjectURL(found.url);
+        return;
+      }
+      const audio = new Audio(found.url);
+      audio.volume = previewVolume(musicVolume, found.gain);
+      audio.onended = stop;
+      current.current = { audio, revoke: found.revoke ? found.url : null };
+      setPlaying(mood);
+      try {
+        await audio.play();
+      } catch (err) {
+        if (mine === token.current) stop();
+        throw err;
+      }
+    },
+    [musicVolume, stop],
+  );
+  return { playing, play, stop };
+}
+
+function MusicList({ pack, assetUrl }: { pack: CampaignPack; assetUrl(path: string): string | null }) {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [uploads, setUploads] = useState<Partial<Record<Mood, string>>>({});
   const [error, setError] = useState<string | null>(null);
+  const preview = usePreview();
   const refresh = useCallback(() => void listUploads(pack.id).then(setUploads, () => setUploads({})), [pack.id]);
   useEffect(() => {
     void loadCatalog().then(setCatalog, () => setCatalog(null));
@@ -331,6 +387,24 @@ function MusicList({ pack }: { pack: CampaignPack }) {
               <strong>{mood}</strong>
               <span title={name}>{uploads[mood] ? `Your file: ${name}` : name}</span>
               <div className={audioStyles.moodActions}>
+                {source && (
+                  <button
+                    type="button"
+                    className={cx(controls.btn, controls.small)}
+                    aria-pressed={preview.playing === mood}
+                    aria-label={preview.playing === mood ? `Stop the ${mood} music` : `Play the ${mood} music`}
+                    onClick={() => {
+                      setError(null);
+                      if (preview.playing === mood) return preview.stop();
+                      preview.play(mood, source, assetUrl).catch((err: unknown) => {
+                        if (err instanceof DOMException && err.name === 'AbortError') return;
+                        setError(err instanceof Error ? err.message : String(err));
+                      });
+                    }}
+                  >
+                    <Icon name={preview.playing === mood ? 'stop' : 'play'} size={13} /> {preview.playing === mood ? 'Stop' : 'Play'}
+                  </button>
+                )}
                 <label htmlFor={inputId} className={cx(controls.btn, controls.small)}>
                   <Icon name="upload" size={13} /> {uploads[mood] ? 'Replace' : 'Use my own'}
                 </label>
@@ -349,7 +423,10 @@ function MusicList({ pack }: { pack: CampaignPack }) {
                   }}
                 />
                 {uploads[mood] && (
-                  <button type="button" className={cx(controls.btn, controls.small)} onClick={() => void removeUpload(pack.id, mood).then(refresh)} aria-label={`Remove your ${mood} music`}>
+                  <button type="button" className={cx(controls.btn, controls.small)} onClick={() => {
+                      if (preview.playing === mood) preview.stop();
+                      void removeUpload(pack.id, mood).then(refresh);
+                    }} aria-label={`Remove your ${mood} music`}>
                     <Icon name="x" size={13} /> Remove
                   </button>
                 )}

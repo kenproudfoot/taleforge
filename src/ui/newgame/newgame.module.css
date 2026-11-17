@@ -34,11 +34,15 @@
 .campaigns {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--s-4);
+  column-gap: var(--s-4);
 }
 .campaign {
-  display: flex;
-  flex-direction: column;
+  /* Spans four rows shared with the cards beside it (subgrid), so titles and taglines line up. */
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  margin-bottom: var(--s-4);
   text-align: left;
   padding: 0;
   background: var(--bg-raised);
@@ -58,23 +62,30 @@
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .campaignBody {
-  padding: var(--s-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
+  display: contents;
+}
+.campaignBody > * {
+  margin-inline: var(--s-4);
+}
+.campaignBody > :last-child {
+  margin-bottom: var(--s-4);
 }
 .campaignTitle {
+  margin-top: var(--s-2);
   font-family: var(--font-display);
   font-size: 20px;
   font-weight: 700;
   color: var(--accent-strong);
 }
 .campaignTagline {
+  margin-top: var(--s-2);
   font-family: var(--font-narration);
   font-style: italic;
   color: var(--text-dim);
 }
 .campaignMeta {
+  padding-top: var(--s-4);
+  align-content: start;
   display: flex;
   gap: 6px;
   flex-wrap: wrap;

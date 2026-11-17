@@ -130,7 +130,7 @@ export function NewGamePage() {
           <div className={styles.campaigns}>
             {campaigns?.map((c) => (
               <button key={`${c.source}:${c.id}`} type="button" className={cx(styles.campaign, pack?.id === c.id && styles.campaignOn)} style={themeStyle(c.theme)} aria-pressed={pack?.id === c.id} onClick={() => void choose(c.id)}>
-                <CampaignCover title={c.title} genre={c.genre} theme={c.theme} imageUrl={c.keyArtUrl} />
+                <CampaignCover title={c.title} genre={c.genre} theme={c.theme} imageUrl={c.keyArtUrl} bonus={c.bonus} />
                 <span className={styles.campaignBody}>
                   <span className={styles.campaignMeta}>
                     <span className={controls.chip}>{c.genre.replace(/-/g, ' ')}</span>

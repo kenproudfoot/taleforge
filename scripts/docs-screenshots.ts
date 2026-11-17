@@ -2,8 +2,9 @@
 // Builds the app, serves it, plays a scripted session and saves the README screenshots to docs/images/.
 // The Dungeon Master is scripted so the pictures are reproducible and need no API keys.
 import { spawn } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { crc32, deflateSync } from 'node:zlib';
 import { chromium } from '@playwright/test';
 
 const OUT = join(process.cwd(), 'docs/images');
@@ -11,7 +12,8 @@ const PORT = 4174;
 const BASE = `http://127.0.0.1:${PORT}/taleforge/`;
 
 const SCRIPT = {
-  helper: ['["Lyra Vance", "Mara Tidewell", "Iseult Brine", "Corrin Holt", "Wren Ashdown"]'],
+  // Names first; after that an empty rewrite, so every picture uses the app's own full prompt.
+  helper: ['["Lyra Vance", "Mara Tidewell", "Iseult Brine", "Corrin Holt", "Wren Ashdown"]', ''],
   dm: [
     { text: 'Dusk in Brinewick. Rain has just stopped and every roof drips. The whole village stands on the shingle with lanterns, staring at the bay, because the bay is leaving.', toolCalls: [{ name: 'roster_add', input: { id: 'elder-maren' } }, { name: 'roster_add', input: { id: 'pip' } }] },
     { text: 'An old woman pushes through the crowd, a brass tide-clock swinging from her fist. «Elder Maren: You came. Thank the tides. The causeway will not stand clear for long.» She presses the clock into your hands. Lyra, what do you do?' },
@@ -34,6 +36,45 @@ const SCRIPT = {
   ],
 };
 
+// The pictures come from a stand-in image service: art painted ahead of time for this exact session
+// (scripts/docs-art/, matched by what each prompt asks for), so the screenshots show real paintings.
+const ART_DIR = join(process.cwd(), 'scripts/docs-art');
+const ART: Array<[string, RegExp]> = [
+  ['party', /^Group portrait/],
+  ['lyra', /^Full-body.*Lyra Vance/],
+  ['brann', /^Full-body.*Brann/],
+  ['brinewick', /^Wide establishing shot of Brinewick/],
+  ['causeway', /^Wide establishing shot of The Dead Tide Causeway/],
+  ['gate-of-bells', /^Wide establishing shot of The Gate of Bells/],
+  ['maren', /^Character portrait of Elder Maren/],
+  ['pip', /^Character portrait of Pip/],
+  ['tide-wight', /^Character portrait of Tide-Wight/],
+];
+
+function artFor(prompt: string): Buffer | null {
+  const hit = ART.find(([, re]) => re.test(prompt));
+  const file = hit && join(ART_DIR, `${hit[0]}.jpg`);
+  return file && existsSync(file) ? readFileSync(file) : null;
+}
+
+/** A plain grey stand-in for any picture the session asks for that has no painting. */
+function greyPng(width: number, height: number): Buffer {
+  const chunk = (type: string, data: Buffer) => {
+    const length = Buffer.alloc(4);
+    length.writeUInt32BE(data.length);
+    const body = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body) >>> 0);
+    return Buffer.concat([length, body, crc]);
+  };
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 0, 0, 0, 0], 8);
+  const row = Buffer.concat([Buffer.from([0]), Buffer.alloc(width, 70)]);
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', header), chunk('IDAT', deflateSync(Buffer.concat(Array.from({ length: height }, () => row)))), chunk('IEND', Buffer.alloc(0))]);
+}
+
 async function serve(): Promise<() => void> {
   const server = spawn('npx', ['vite', 'preview', '--port', String(PORT), '--strictPort', '--host', '127.0.0.1'], { stdio: 'ignore' });
   for (let i = 0; i < 60; i++) {
@@ -55,6 +96,19 @@ try {
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await page.emulateMedia({ reducedMotion: 'no-preference' });
   await page.addInitScript((s) => localStorage.setItem('taleforge:e2e', JSON.stringify(s)), SCRIPT);
+  // Music previews would need real speakers: record the click instead.
+  await page.addInitScript(() => {
+    HTMLMediaElement.prototype.play = () => Promise.resolve();
+  });
+  const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*' };
+  await page.route('https://images.test/**', async (route) => {
+    if (route.request().method() === 'OPTIONS') return route.fulfill({ status: 204, headers: CORS });
+    const body = JSON.parse(route.request().postData() ?? '{}') as { prompt: string; width: number; height: number };
+    const art = artFor(body.prompt);
+    if (!art) console.log(`no painting for (${body.width}x${body.height}): ${JSON.stringify(body.prompt)}`);
+    const data = art ?? greyPng(Math.max(1, Math.round(body.width / 16)), Math.max(1, Math.round(body.height / 16)));
+    return route.fulfill({ status: 200, headers: CORS, json: { data: [{ b64_json: data.toString('base64') }] } });
+  });
   const shot = async (name: string, wait = 500) => {
     await page.waitForTimeout(wait);
     await page.screenshot({ path: join(OUT, `${name}.png`) });
@@ -66,9 +120,28 @@ try {
   await page.getByLabel('Anthropic API key').fill('sk-ant-api03-example-key-for-screenshots');
   await shot('setup-wizard');
 
+  await page.goto(`${BASE}#/settings`);
+  await page.getByLabel('Image service').selectOption('custom');
+  await page.getByLabel('URL', { exact: true }).fill('https://images.test/generate');
+  await page.waitForTimeout(400);
+
+  await page.goto(`${BASE}#/`);
+  await page.mouse.move(0, 0);
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await shot('home', 900);
+
   await page.goto(`${BASE}#/library`);
-  await page.getByRole('article').filter({ hasText: 'Ashes on 45th Street' }).getByRole('button', { name: 'Details' }).click();
-  await shot('campaign-library');
+  await page.getByRole('article').filter({ hasText: 'The Light at Point Sur' }).waitFor();
+  // Tall enough for both rows of cards, the bonus campaign included.
+  await page.setViewportSize({ width: 1440, height: 1240 });
+  await shot('campaign-library', 900);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole('article').filter({ hasText: 'The Light at Point Sur' }).getByRole('button', { name: 'Details' }).click();
+  const details = page.getByRole('dialog', { name: 'The Light at Point Sur' });
+  await details.getByRole('button', { name: 'Play the mystery music' }).click();
+  await details.getByText('Music', { exact: true }).scrollIntoViewIfNeeded();
+  await shot('campaign-details');
+  await details.getByRole('button', { name: 'Close' }).click();
 
   await page.goto(`${BASE}#/new`);
   await page.getByRole('button', { name: /The Sunken Crown/ }).click();
@@ -109,7 +182,9 @@ try {
   await prompt.getByRole('button', { name: 'I rolled 7' }).click();
   await page.getByText('What do you do?').last().waitFor();
   await page.getByRole('tab', { name: 'State' }).click().catch(() => undefined);
-  await shot('game-table', 900);
+  // Let the painted scene arrive and its 2.5D view settle in.
+  await page.getByRole('img', { name: /^Scene: / }).first().waitFor({ timeout: 15_000 }).catch(() => undefined);
+  await shot('game-table', 2500);
 
   await page.getByRole('button', { name: /Brann, Knight/ }).click();
   await page.getByRole('button', { name: 'Stats' }).click();

@@ -32,13 +32,16 @@ the game from this repo (`npm run dev`) writes the logs to `playtests/` by itsel
 - **Talk back.** Push-to-talk (hold the button or the Space bar) or type. "Speaking as" chips show who has the
   spotlight and switch automatically when the DM turns to someone.
 - **Pictures as you play.** Full-body portraits of every character with their name on a card, a party
-  picture, the places you visit and big story moments, painted in each campaign's style.
+  picture, the places you visit and big story moments, painted in each campaign's style. Scenes and cards
+  come alive in 2.5D: they drift slowly in depth, follow the mouse or the tilt of a phone, and the arrows on
+  the scene panel page back through every picture painted so far.
 - **Dice your way.** Throw physics-based 3D dice (d4 to d100), or roll real dice and tap in the result. Choose
   per table or per player, and change your mind mid-game.
 - **Music that follows the story.** Calm, tension, combat, mystery, triumph and more, crossfading as the
   scene changes and quietening whenever the Dungeon Master speaks.
 - **Three complete adventures included:** a drowned-kingdom ghost story, a 1931 noir mystery and a frozen
-  science-fiction first-contact story. Each takes about 45 minutes and has several endings.
+  science-fiction first-contact story, plus a bonus R-rated one: a 1965 haunting at the real Point Sur
+  lighthouse on the Big Sur coast. Each takes about 45 minutes and has several endings.
 - **Write your own campaigns** as five plain-text files, by hand or with Claude, and drop them in.
 - **Save, recap and resume anywhere.** Every turn is saved. Save & quit writes a `recap.md` that brings the
   exact game back on any computer.
@@ -47,6 +50,10 @@ the game from this repo (`npm run dev`) writes the logs to `playtests/` by itsel
 | Create characters | Throw the dice | Flip a character card |
 |---|---|---|
 | ![Character creation with campaign-specific roles](docs/images/character-creation.png) | ![3D dice tray](docs/images/dice-tray.png) | ![A character card flipped to show stats](docs/images/stat-card.png) |
+
+| Start a game | Browse the campaigns | Listen to a campaign's music |
+|---|---|---|
+| ![The home screen](docs/images/home.png) | ![The campaign library](docs/images/campaign-library.png) | ![A campaign's details, with a music preview playing](docs/images/campaign-details.png) |
 
 ## Getting started
 
@@ -131,9 +138,10 @@ each file and a **copy-paste prompt for Claude** that writes a new campaign for 
 [docs/CAMPAIGN_AUTHORING.md](docs/CAMPAIGN_AUTHORING.md).
 
 To import one, open the **Campaign library** and drag the folder or a `.zip` onto *Import a campaign*. Any
-problems are listed with the file, line, field and a suggested fix.
+problems are listed with the file, line, field and a suggested fix. A campaign marked `bonus: true` wears a
+gold **Bonus** sash on its card.
 
-![The campaign library](docs/images/campaign-library.png)
+![A campaign's details: the story, the roles and the music for each mood](docs/images/campaign-details.png)
 
 ### Replacing music
 
@@ -141,7 +149,7 @@ Every campaign maps each mood (title, exploration, tension, combat, calm, myster
 track. You can change them three ways:
 
 - **For yourself:** Campaign library → *Details* → **Use my own** next to any mood. The file stays in your
-  browser.
+  browser. **Play** next to each mood previews whatever it is set to.
 - **In a campaign pack:** put audio files in the pack's `assets/music/` folder and point the `audio:` map in
   `campaign.md` at them.
 - **For your own copy of TaleForge:** replace files in `public/content/audio/music/`, update

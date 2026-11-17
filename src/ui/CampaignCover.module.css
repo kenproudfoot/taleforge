@@ -5,3 +5,26 @@
   object-fit: cover;
   background: var(--bg-sunken);
 }
+
+/* A bonus campaign: the cover wears a gold sash across its top-right corner. */
+.frame {
+  position: relative;
+  overflow: hidden;
+}
+.sash {
+  position: absolute;
+  top: 18px;
+  right: -38px;
+  width: 150px;
+  padding: 5px 0;
+  transform: rotate(38deg);
+  background: linear-gradient(180deg, #f3d27a 0%, #d6a63c 55%, #b9862a 100%);
+  color: #2a1c05;
+  font: 800 0.72rem/1 var(--font-ui, system-ui, sans-serif);
+  letter-spacing: 0.22em;
+  text-align: center;
+  text-transform: uppercase;
+  border-block: 1px solid rgba(255, 244, 205, 0.7);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+  pointer-events: none;
+}

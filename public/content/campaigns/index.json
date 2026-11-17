@@ -15,7 +15,8 @@
         "display_font": "Limelight",
         "bubble": "smoke"
       },
-      "keyArt": "assets/key-art.jpg"
+      "keyArt": "assets/key-art.jpg",
+      "bonus": false
     },
     {
       "id": "signal-from-kepler-9",
@@ -32,7 +33,8 @@
         "display_font": "Orbitron",
         "bubble": "glass"
       },
-      "keyArt": "assets/key-art.jpg"
+      "keyArt": "assets/key-art.jpg",
+      "bonus": false
     },
     {
       "id": "the-sunken-crown",
@@ -49,7 +51,26 @@
         "display_font": "Cinzel",
         "bubble": "parchment"
       },
-      "keyArt": "assets/key-art.jpg"
+      "keyArt": "assets/key-art.jpg",
+      "bonus": false
+    },
+    {
+      "id": "the-light-at-point-sur",
+      "title": "The Light at Point Sur",
+      "genre": "supernatural-horror",
+      "era": "February 1965, Point Sur Light Station, Big Sur, California. A Coast Guard lighthouse on a 361-foot rock, thirty miles from help",
+      "tagline": "The light on the rock has gone dark. Tonight is thirty years to the day since the airship fell into the sea below it.",
+      "players": "1-4",
+      "targetMinutes": 45,
+      "contentRating": "R",
+      "theme": {
+        "accent": "#e0533f",
+        "background": "#0a0f13",
+        "display_font": "Spectral",
+        "bubble": "smoke"
+      },
+      "keyArt": "assets/key-art.jpg",
+      "bonus": true
     }
   ]
 }

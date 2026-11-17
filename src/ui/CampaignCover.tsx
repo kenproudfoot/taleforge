@@ -10,6 +10,8 @@ interface Props {
   /** Real key art, when the campaign ships some. Otherwise an illustrated cover is drawn. */
   imageUrl?: string | null;
   className?: string;
+  /** Draws a "Bonus" sash across the top-right corner. */
+  bonus?: boolean;
 }
 
 type Motif = 'fantasy' | 'noir' | 'space' | 'generic';
@@ -23,7 +25,17 @@ export function motifFor(genre: string): Motif {
 }
 
 /** Campaign card art: the pack's key art if present, otherwise a themed illustration drawn in SVG. */
-export function CampaignCover({ title, genre, theme, imageUrl, className }: Props) {
+export function CampaignCover({ bonus, className, ...props }: Props) {
+  if (!bonus) return <Cover {...props} className={className} />;
+  return (
+    <div className={[styles.frame, className].filter(Boolean).join(' ')}>
+      <Cover {...props} />
+      <span className={styles.sash}>Bonus</span>
+    </div>
+  );
+}
+
+function Cover({ title, genre, theme, imageUrl, className }: Omit<Props, 'bonus'>) {
   const id = useId().replace(/:/g, '');
   if (imageUrl) {
     return <img className={[styles.cover, className].filter(Boolean).join(' ')} src={imageUrl} alt={`Key art for ${title}`} />;

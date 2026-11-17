@@ -61,6 +61,8 @@ export const campaignFrontMatter = z.strictObject({
   hooks: z.array(text).min(1),
   key_art: z.string().regex(/^assets\/[\w./ -]+\.(svg|png|jpe?g|webp)$/, 'Use an image path such as assets/key-art.jpg').optional(),
   opening_location: id.optional(),
+  /** A bonus campaign: marked with a "Bonus" sash on its card. */
+  bonus: z.boolean().default(false),
 });
 export type CampaignFrontMatter = z.infer<typeof campaignFrontMatter>;
 

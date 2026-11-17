@@ -79,6 +79,8 @@ describe.each(IDS)('starter campaign %s', (id) => {
   });
 });
 
-it('ships exactly the three starter campaigns', () => {
-  expect(IDS.sort()).toEqual(['ashes-on-45th-street', 'signal-from-kepler-9', 'the-sunken-crown']);
+it('ships the three starter campaigns and the bonus campaign', () => {
+  expect(IDS.sort()).toEqual(['ashes-on-45th-street', 'signal-from-kepler-9', 'the-light-at-point-sur', 'the-sunken-crown']);
+  const bonus = IDS.filter((id) => parseCampaignPack(readPackFiles(id), { folder: id }).pack!.manifest.bonus).sort();
+  expect(bonus).toEqual(['the-light-at-point-sur']);
 });

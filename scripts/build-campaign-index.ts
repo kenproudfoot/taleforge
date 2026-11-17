@@ -15,5 +15,7 @@ for (const name of listCampaignFolders()) {
   }
   campaigns.push(summarizePack(pack));
 }
+// Bonus campaigns come after the core ones.
+campaigns.sort((a, b) => Number(a.bonus) - Number(b.bonus));
 writeFileSync(join(CAMPAIGNS_ROOT, 'index.json'), JSON.stringify({ campaigns }, null, 2) + '\n');
 console.log(`campaign index: ${campaigns.length} campaign(s)`);

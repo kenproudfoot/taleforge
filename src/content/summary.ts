@@ -13,6 +13,8 @@ export interface CampaignSummary {
   contentRating: string;
   theme: CampaignFrontMatter['theme'];
   keyArt: string | null;
+  /** Optional so an older index without the field still reads as false. */
+  bonus?: boolean;
 }
 
 export function summarizePack(pack: CampaignPack): CampaignSummary {
@@ -28,5 +30,6 @@ export function summarizePack(pack: CampaignPack): CampaignSummary {
     contentRating: m.content_rating,
     theme: m.theme,
     keyArt: m.key_art ?? null,
+    bonus: m.bonus,
   };
 }

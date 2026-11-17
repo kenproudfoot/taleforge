@@ -111,41 +111,53 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: var(--s-5);
-  align-items: start;
+  column-gap: var(--s-5);
 }
+/*
+ * Each card spans five rows of the grid (picture, tags, title, tagline, buttons) and shares them with
+ * the cards beside it through subgrid: when one card's tags wrap or its title runs long, that row grows for
+ * every card in the row, so titles, taglines and buttons line up and the cards stay the same size.
+ */
 .card {
   background: var(--bg-raised);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   overflow: hidden;
   box-shadow: var(--shadow-1);
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-row: span 5;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  margin-bottom: var(--s-5);
 }
 .cardBody {
-  padding: var(--s-4) var(--s-4) var(--s-4);
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-3);
+  display: contents;
+}
+.cardBody > :not(dialog) {
+  margin-inline: var(--s-4);
 }
 .cardMeta {
   display: flex;
   flex-wrap: wrap;
+  align-content: start;
   gap: 6px;
+  padding-top: var(--s-4);
   text-transform: capitalize;
 }
 .cardTitle {
+  margin-top: var(--s-3);
   font-size: 23px;
   color: var(--accent-strong);
 }
 .tagline {
+  margin-top: var(--s-3);
   font-family: var(--font-narration);
   font-size: 16px;
   color: var(--text-dim);
   font-style: italic;
 }
 .cardActions {
+  margin-block: var(--s-3) var(--s-4);
   display: flex;
   gap: var(--s-2);
   flex-wrap: wrap;
@@ -154,9 +166,11 @@
   display: flex;
   flex-direction: column;
   gap: var(--s-3);
-  padding-top: var(--s-3);
-  border-top: 1px solid var(--line);
   font-size: 14.5px;
+}
+.detailsDialog h2 {
+  font-family: var(--font-display);
+  color: var(--accent-strong);
 }
 .era {
   color: var(--accent);

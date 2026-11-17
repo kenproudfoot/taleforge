@@ -18,8 +18,50 @@ test('library shows bundled campaigns with details', async ({ page }) => {
   const card = page.getByRole('article').filter({ hasText: 'The Sunken Crown' });
   await expect(card).toBeVisible();
   await card.getByRole('button', { name: 'Details' }).click();
-  await expect(card.getByText('Reach the drowned cathedral of Tolmere')).toBeVisible();
-  await expect(card.getByText(/Knight, Rogue, Ranger/)).toBeVisible();
+  const details = page.getByRole('dialog', { name: 'The Sunken Crown' });
+  await expect(details.getByText('Reach the drowned cathedral of Tolmere')).toBeVisible();
+  await expect(details.getByText(/Knight, Rogue, Ranger/)).toBeVisible();
+  await details.getByRole('button', { name: 'Close' }).click();
+  await expect(details).toBeHidden();
+});
+
+test('cards in a row line up their titles and share one height, whatever their tag count', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto('./#/library');
+  const cards = page.getByRole('article');
+  await expect(cards).toHaveCount(4);
+  const boxes = await Promise.all([0, 1, 2].map((i) => cards.nth(i).boundingBox()));
+  const titles = await Promise.all([0, 1, 2].map((i) => cards.nth(i).getByRole('heading').boundingBox()));
+  for (const i of [1, 2]) {
+    expect(Math.abs(titles[i]!.y - titles[0]!.y)).toBeLessThan(1);
+    expect(Math.abs(boxes[i]!.height - boxes[0]!.height)).toBeLessThan(1);
+  }
+});
+
+test('the music list plays a quick preview of each mood, one at a time', async ({ page }) => {
+  // Record what would play instead of playing it (headless Chromium lacks the AAC codec).
+  await page.addInitScript(() => {
+    const w = window as unknown as { played: string[] };
+    w.played = [];
+    HTMLMediaElement.prototype.play = function (this: HTMLMediaElement) {
+      w.played.push(this.src);
+      return Promise.resolve();
+    };
+  });
+  await page.goto('./#/library');
+  const card = page.getByRole('article').filter({ hasText: 'The Light at Point Sur' });
+  await card.getByRole('button', { name: 'Details' }).click();
+  const title = card.getByRole('button', { name: 'Play the title music' });
+  await title.click();
+  await expect(card.getByRole('button', { name: 'Stop the title music' })).toHaveAttribute('aria-pressed', 'true');
+  await card.getByRole('button', { name: 'Play the combat music' }).click();
+  await expect(card.getByRole('button', { name: 'Stop the combat music' })).toBeVisible();
+  await expect(title).toHaveAttribute('aria-pressed', 'false');
+  await card.getByRole('button', { name: 'Stop the combat music' }).click();
+  await expect(card.getByRole('button', { name: 'Play the combat music' })).toBeVisible();
+  const played = await page.evaluate(() => (window as unknown as { played: string[] }).played);
+  expect(played).toHaveLength(2);
+  expect(played[0]).toContain('content/audio/');
 });
 
 test('importing a broken campaign shows precise errors', async ({ page }) => {

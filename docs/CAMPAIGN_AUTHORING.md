@@ -62,6 +62,7 @@ audio:                          # optional; any mood left out uses the app's def
 goal: { text: "What the party must achieve.", milestones: 5 }   # milestones fill the progress bar
 opening_location: brinewick     # optional; a location id from world.md (default: the first location)
 key_art: assets/key-art.jpg     # optional; shown on the campaign card
+bonus: true                     # optional; marks a bonus campaign with a "Bonus" sash on its card
 acts:
   - { id: act1, title: "The Dead Tide", minutes: 12, beats: [brinewick-at-dusk, the-causeway] }
   - { id: act2, title: "The Drowned City", minutes: 18, beats: [gate-of-bells, varrs-bargain, the-reliquary] }

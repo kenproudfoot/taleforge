@@ -84,7 +84,7 @@ describe('a good pack', () => {
   });
 
   it('summarizes for the picker', () => {
-    expect(summarizePack(loadTestPack())).toMatchObject({ id: 'the-sunken-crown', targetMinutes: 45, players: '1-4', keyArt: null });
+    expect(summarizePack(loadTestPack())).toMatchObject({ id: 'the-sunken-crown', targetMinutes: 45, players: '1-4', keyArt: null, bonus: false });
   });
 });
 
