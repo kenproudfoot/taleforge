@@ -61,7 +61,8 @@ test('the music list plays a quick preview of each mood, one at a time', async (
   await expect(card.getByRole('button', { name: 'Play the combat music' })).toBeVisible();
   const played = await page.evaluate(() => (window as unknown as { played: string[] }).played);
   expect(played).toHaveLength(2);
-  expect(played[0]).toContain('content/audio/');
+  // This campaign ships its own music in its pack.
+  expect(played[0]).toContain('the-light-at-point-sur/assets/music/Tide-and-Treason.m4a');
 });
 
 test('importing a broken campaign shows precise errors', async ({ page }) => {

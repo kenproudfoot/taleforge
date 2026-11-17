@@ -12,14 +12,14 @@ art_style: "cinematic 1960s horror film still, realistic lighting, cold Pacific 
 key_art: assets/key-art.jpg
 theme: { accent: "#e0533f", background: "#0a0f13", display_font: Spectral, bubble: smoke }
 audio:
-  title: bundled:fantasy-tension
-  exploration: bundled:owner-vast-unfamiliar-world
-  tension: bundled:noir-tension
-  combat: bundled:fantasy-combat
-  calm: bundled:calm-hearth
-  mystery: bundled:owner-shadowed-corner
-  triumph: bundled:triumph-banners
-  defeat: bundled:defeat-ashes
+  title: assets/music/Tide-and-Treason.m4a
+  exploration: assets/music/Midnight-at-the-Wharf.m4a
+  tension: assets/music/Low-Tide-Alibi.m4a
+  combat: assets/music/Saltwater-Standoff.m4a
+  calm: assets/music/Tide-Beneath-the-Boardwalk.m4a
+  mystery: assets/music/Beneath-the-Wharf.m4a
+  triumph: assets/music/The-Harbor-Clears.m4a
+  defeat: assets/music/Saltwater-Requiem.m4a
 goal: { text: "Reach the lantern room, save the keeper's family, and end what has been keeping the light since 1889.", milestones: 5 }
 opening_location: the-gate
 acts:
