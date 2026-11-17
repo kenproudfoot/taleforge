@@ -13,6 +13,7 @@ import controls from '../controls.module.css';
 import { cx } from '../cx';
 import { TIPS, statTip } from '../glossary';
 import { useStoredImage } from '../useStoredImage';
+import { ParallaxImage } from '../art/ParallaxImage';
 import { Avatar, DmAvatar } from './Avatar';
 import styles from './ChatLog.module.css';
 
@@ -29,6 +30,8 @@ interface Props {
   /** Playtest reactions per DM message; null hides the feedback buttons. */
   feedback?: Record<string, PlaytestFeedback> | null;
   onFeedback?(entryId: string, rating: PlaytestFeedback['rating'] | null, note?: string): void;
+  /** Opens a party member's character card (clicking their avatar beside a message). */
+  onOpenCard?(memberId: string): void;
 }
 
 /** Thumbs up/down (and an optional note) on a DM message, for the playtest log. */
@@ -274,7 +277,7 @@ function ImageEntry({ entry }: { entry: Extract<ChatEntry, { kind: 'image' }> })
       <figcaption>{entry.caption}</figcaption>
       {open && (
         <Modal title={entry.caption} hideTitle wide onClose={() => setOpen(false)} className={styles.full}>
-          <img src={url} alt={entry.caption} className={styles.fullImage} />
+          <ParallaxImage imageKey={entry.imageKey} url={url} alt={entry.caption} className={styles.fullImage} fit="contain" maxHeight="(100vh - 120px)" />
           <p className={styles.fullCaption}>{entry.caption}</p>
         </Modal>
       )}
@@ -282,7 +285,7 @@ function ImageEntry({ entry }: { entry: Extract<ChatEntry, { kind: 'image' }> })
   );
 }
 
-export function ChatLog({ session, busy, onRetry, speaking, feedback, onFeedback, onReplay, names: knownNames }: Props) {
+export function ChatLog({ session, busy, onRetry, speaking, feedback, onFeedback, onReplay, names: knownNames, onOpenCard }: Props) {
   const scroller = useRef<HTMLDivElement>(null);
   const stick = useRef(true);
   const last = session.chat.at(-1);
@@ -344,7 +347,13 @@ export function ChatLog({ session, busy, onRetry, speaking, feedback, onFeedback
                   </span>
                   <p>{entry.text}</p>
                 </div>
-                <Avatar name={member?.name ?? 'Player'} archetypeId={member?.archetypeId} color={member?.playerColor} imageKey={member ? session.images.portraits[member.id] : null} />
+                {member && onOpenCard ? (
+                  <button type="button" className={styles.avatarButton} onClick={() => onOpenCard(member.id)} aria-label={`${member.name}. Open card`} title={`${member.name}: open card`}>
+                    <Avatar name={member.name} archetypeId={member.archetypeId} color={member.playerColor} imageKey={session.images.portraits[member.id]} />
+                  </button>
+                ) : (
+                  <Avatar name={member?.name ?? 'Player'} archetypeId={member?.archetypeId} color={member?.playerColor} imageKey={member ? session.images.portraits[member.id] : null} />
+                )}
               </div>
             );
           }

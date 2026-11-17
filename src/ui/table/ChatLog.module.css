@@ -369,3 +369,16 @@
   font-style: italic;
   color: var(--text-dim);
 }
+/* A player's avatar beside their message opens their character card. */
+.avatarButton {
+  align-self: flex-end;
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: none;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease);
+}
+.avatarButton:hover {
+  transform: scale(1.08);
+}

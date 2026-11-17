@@ -12,6 +12,9 @@ export function plaqueLayout(width: number, height: number, nameLength: number) 
   };
 }
 
+/** Top of the name plaque as a fraction of the card's height (the same for every card size and name). */
+export const PLAQUE_TOP = plaqueLayout(1000, 1000, 10).y / 1000;
+
 /**
  * Draws the character's name plaque onto the portrait in the campaign's colours and fonts. The model is
  * never asked to write the name, so the spelling is always right. Returns null where canvas is unavailable.

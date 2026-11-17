@@ -1,7 +1,7 @@
 import type { CampaignPack } from '@/content/pack';
 import { shortName } from '@/engine/names';
 import type { Archetype, PartyMember } from '@/engine/types';
-import { newId } from '@/game/session';
+import { newId, recordShown } from '@/game/session';
 import type { Session } from '@/game/session';
 import type { GameEvent } from '@/game/store';
 import { ProviderError } from '../providers/types';
@@ -65,7 +65,7 @@ export class ArtDirector {
   }
 
   private patchImages(change: (images: Session['images']) => Session['images']): void {
-    if (!this.disposed) this.deps.patch((s) => ({ ...s, images: change(s.images) }));
+    if (!this.disposed) this.deps.patch((s) => recordShown({ ...s, images: change(s.images) }));
   }
 
   /** Paints a subject (or returns the cached image) and resolves with its cache key. */

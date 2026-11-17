@@ -10,12 +10,14 @@ import controls from '../controls.module.css';
 import { cx } from '../cx';
 import { TIPS, statTip } from '../glossary';
 import { useStoredImage } from '../useStoredImage';
+import { ParallaxImage } from '../art/ParallaxImage';
+import { PLAQUE_TOP } from '@/ai/art/plaque';
 import { useVoiceUi } from '../voice/useVoice';
 import { Avatar } from './Avatar';
 import styles from './Roster.module.css';
 import { shortName } from '@/engine/names';
 
-type Selected = { kind: 'party'; id: string } | { kind: 'npc'; id: string };
+export type Selected = { kind: 'party'; id: string } | { kind: 'npc'; id: string };
 
 const signed = (n: number) => (n >= 0 ? `+${n}` : String(n));
 const ROLE_LABEL = { ally: 'Ally', neutral: 'Neutral', enemy: 'Enemy', boss: 'Boss' } as const;
@@ -30,21 +32,22 @@ function HpBar({ hp, max }: { hp: number; max: number }) {
 }
 
 /** Large card art: the portrait when it exists, otherwise a themed emblem card. The name plaque is drawn here, never by the image model. */
-function CardFront({ name, subtitle, imageKey, cardKey, archetypeId, color, role }: { name: string; subtitle: string; imageKey?: string | null; cardKey?: string | null; archetypeId?: string; color?: string; role?: RosterEntry['role'] }) {
+function CardFront({ name, subtitle, imageKey, cardKey, archetypeId, color, role, paused }: { name: string; subtitle: string; imageKey?: string | null; cardKey?: string | null; archetypeId?: string; color?: string; role?: RosterEntry['role']; paused?: boolean }) {
   const url = useStoredImage(imageKey);
   const card = useStoredImage(cardKey);
   // The composited card already carries its name plaque, painted in by the app.
   if (card) {
     return (
       <div className={styles.front}>
-        <img src={card} alt={`${name}, ${subtitle}`} className={styles.art} />
+        {/* 2.5D like the scenes; the painted-on plaque stays still. */}
+        <ParallaxImage imageKey={cardKey!} url={card} alt={`${name}, ${subtitle}`} className={styles.art} paused={paused} flatBelow={PLAQUE_TOP} />
       </div>
     );
   }
   return (
     <div className={styles.front}>
       {url ? (
-        <img src={url} alt={`Portrait of ${name}`} className={styles.art} />
+        <ParallaxImage imageKey={imageKey!} url={url} alt={`Portrait of ${name}`} className={styles.art} paused={paused} />
       ) : (
         <div className={styles.emblem} style={{ ['--tint' as string]: color ?? (role === 'enemy' || role === 'boss' ? 'var(--bad)' : 'var(--accent)') }}>
           {archetypeId ? <ArchetypeIcon archetypeId={archetypeId} size={120} color="var(--tint)" /> : <Icon name={role === 'boss' ? 'star' : role === 'enemy' ? 'swords' : role === 'ally' ? 'shield' : 'users'} size={110} style={{ color: 'var(--tint)' }} />}
@@ -185,7 +188,7 @@ function NpcBack({ e }: { e: RosterEntry }) {
   );
 }
 
-function RosterCard({ session, campaign, selected, onClose }: { session: Session; campaign: EngineCampaign; selected: Selected; onClose(): void }) {
+export function RosterCard({ session, campaign, selected, onClose }: { session: Session; campaign: EngineCampaign; selected: Selected; onClose(): void }) {
   const [flipped, setFlipped] = useState(false);
   const member = selected.kind === 'party' ? session.state.party.find((p) => p.id === selected.id) : undefined;
   const entry = selected.kind === 'npc' ? session.state.roster.find((r) => r.id === selected.id) : undefined;
@@ -197,9 +200,9 @@ function RosterCard({ session, campaign, selected, onClose }: { session: Session
         <div className={cx(styles.card, flipped && styles.flipped)}>
           <div className={styles.face} aria-hidden={flipped}>
             {member ? (
-              <CardFront name={member.name} subtitle={member.archetypeName} imageKey={session.images.portraits[member.id]} cardKey={session.images.cards?.[member.id]} archetypeId={member.archetypeId} color={member.playerColor} />
+              <CardFront name={member.name} subtitle={member.archetypeName} imageKey={session.images.portraits[member.id]} cardKey={session.images.cards?.[member.id]} archetypeId={member.archetypeId} color={member.playerColor} paused={flipped} />
             ) : (
-              <CardFront name={entry!.name} subtitle={ROLE_LABEL[entry!.role]} imageKey={session.images.portraits[entry!.id]} role={entry!.role} />
+              <CardFront name={entry!.name} subtitle={ROLE_LABEL[entry!.role]} imageKey={session.images.portraits[entry!.id]} role={entry!.role} paused={flipped} />
             )}
           </div>
           <div className={cx(styles.face, styles.faceBack)} aria-hidden={!flipped}>
@@ -216,8 +219,9 @@ function RosterCard({ session, campaign, selected, onClose }: { session: Session
   );
 }
 
-export function Roster({ session, campaign }: { session: Session; campaign: EngineCampaign }) {
-  const [selected, setSelected] = useState<Selected | null>(null);
+/** The party and who is in the scene. Clicking someone asks the page to open their card (see RosterCard). */
+export function Roster({ session, onOpen }: { session: Session; onOpen(selected: Selected): void }) {
+  const setSelected = onOpen;
   const present = session.state.roster.filter((e) => e.present);
   return (
     <section className={styles.roster} aria-label="Who is in the scene">
@@ -246,7 +250,6 @@ export function Roster({ session, campaign }: { session: Session; campaign: Engi
           ))}
         </AnimatePresence>
       </ul>
-      {selected && <RosterCard session={session} campaign={campaign} selected={selected} onClose={() => setSelected(null)} />}
     </section>
   );
 }

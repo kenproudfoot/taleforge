@@ -26,7 +26,8 @@ import { ChatLog } from './ChatLog';
 import styles from './GameTablePage.module.css';
 import { InputBar } from './InputBar';
 import { RollPrompt } from './RollPrompt';
-import { Roster } from './Roster';
+import { Roster, RosterCard } from './Roster';
+import type { Selected } from './Roster';
 import { ScenePanel } from './ScenePanel';
 import { StatePanel } from './StatePanel';
 
@@ -60,6 +61,8 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
   const game = useGame();
   const { session, pack, campaign } = game;
   const [tab, setTab] = useState<SideTab>('scene');
+  /** The character card open on top of the table: from the roster or from an avatar in the chat. */
+  const [card, setCard] = useState<Selected | null>(null);
   const [modelOpen, setModelOpen] = useState(false);
   const [usageOpen, setUsageOpen] = useState(false);
   const [surveyOpen, setSurveyOpen] = useState(false);
@@ -160,7 +163,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
 
       <div className={styles.body}>
         <main className={styles.chat}>
-          <ChatLog session={session} busy={game.busy} onRetry={() => void game.retry()} speaking={slots.speaking} onReplay={slots.onReplay} names={slots.names} feedback={playtesting ? session.playtest.feedback : null} onFeedback={game.setFeedback} />
+          <ChatLog session={session} busy={game.busy} onRetry={() => void game.retry()} speaking={slots.speaking} onReplay={slots.onReplay} names={slots.names} feedback={playtesting ? session.playtest.feedback : null} onFeedback={game.setFeedback} onOpenCard={(id) => setCard({ kind: 'party', id })} />
           {!game.busy && !state.ended && session.history.length === 0 && session.summary.trim() !== '' && (
             <div className={styles.resume}>
               <span>This game was restored from a recap. The Dungeon Master will remind everyone where things stand.</span>
@@ -195,7 +198,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
             ))}
           </div>
           <div className={cx(styles.sidePanel, tab === 'roster' && styles.sidePanelOn)}>
-            <Roster session={session} campaign={campaign} />
+            <Roster session={session} onOpen={setCard} />
           </div>
           <div className={cx(styles.sidePanel, tab === 'scene' && styles.sidePanelOn)}>
             <ScenePanel session={session} pack={pack} campaign={campaign} keyArtUrl={keyArtUrl} painting={slots.painting} />
@@ -289,6 +292,7 @@ export function GameTablePage({ slots = {} }: { slots?: TableSlots }) {
           }}
         />
       )}
+      {card && <RosterCard key={card.id} session={session} campaign={campaign} selected={card} onClose={() => setCard(null)} />}
       {usageOpen && <UsagePanel session={session} targetMinutes={campaign.targetMinutes} onClose={() => setUsageOpen(false)} />}
 
       {boostOpen && boostMembers.length > 0 && (

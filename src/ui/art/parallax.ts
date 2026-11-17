@@ -71,7 +71,8 @@ void main() {
 
 /**
  * Each pixel looks up the depth where it will land and shifts by it; a few fixed-point steps settle that
- * circular lookup, which keeps near edges crisp instead of doubled.
+ * circular lookup, which keeps near edges crisp instead of doubled. `uFlat` (texture y, 0 = top) keeps
+ * everything below it still: for card art with a name plaque painted on. Above 1 it does nothing.
  */
 export const FRAGMENT_SHADER = `
 precision mediump float;
@@ -82,11 +83,18 @@ uniform vec2 uOffset;
 uniform vec2 uScale;
 uniform float uZoom;
 uniform float uFocus;
+uniform float uFlat;
 void main() {
-  vec2 base = (vUv - 0.5) * uScale / uZoom + 0.5;
+  // Cover-crop, then zoom about the centre, or about the bottom edge when the bottom is held still (so a
+  // plaque there is never cropped: it does not move, so it needs no margin).
+  vec2 c = (vUv - 0.5) * uScale + 0.5;
+  vec2 o = vec2(0.5, uFlat <= 1.0 ? 0.5 + uScale.y * 0.5 : 0.5);
+  vec2 base = o + (c - o) / uZoom;
   vec2 uv = base;
   for (int i = 0; i < 6; i++) {
     float d = texture2D(uDepth, clamp(uv, 0.0, 1.0)).r;
+    // Below uFlat (a name plaque) everything sits on the still plane, eased in so there is no seam.
+    d = mix(d, uFocus, smoothstep(uFlat - 0.06, uFlat, base.y));
     uv = base - uOffset * (d - uFocus);
   }
   gl_FragColor = texture2D(uImage, clamp(uv, 0.0, 1.0));

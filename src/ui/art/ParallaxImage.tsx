@@ -22,6 +22,8 @@ interface Props {
   maxHeight?: string;
   /** Stops the animation (for example while the full-screen copy is open on top). */
   paused?: boolean;
+  /** Keeps everything below this height (0 top .. 1 bottom) still, such as a name plaque. */
+  flatBelow?: number;
 }
 
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -68,7 +70,7 @@ function texture(gl: WebGLRenderingContext, unit: number, img: HTMLImageElement)
  * while it is over the picture, and follows the device's tilt on phones and tablets. Returns false from the
  * setup when WebGL is missing, so the caller can show the flat picture.
  */
-function useParallax(canvas: HTMLCanvasElement | null, url: string, depthUrl: string | null, paused: boolean, onFail: () => void, onAspect: (r: number) => void): void {
+function useParallax(canvas: HTMLCanvasElement | null, url: string, depthUrl: string | null, paused: boolean, flatBelow: number, onFail: () => void, onAspect: (r: number) => void): void {
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
   useEffect(() => {
@@ -104,6 +106,7 @@ function useParallax(canvas: HTMLCanvasElement | null, url: string, depthUrl: st
       gl.uniform1i(prog.uniform('uImage'), 0);
       gl.uniform1i(prog.uniform('uDepth'), 1);
       gl.uniform1f(prog.uniform('uFocus'), PARALLAX_FOCUS);
+      gl.uniform1f(prog.uniform('uFlat'), flatBelow);
       const uOffset = prog.uniform('uOffset');
       const uScale = prog.uniform('uScale');
       const uZoom = prog.uniform('uZoom');
@@ -200,21 +203,21 @@ function useParallax(canvas: HTMLCanvasElement | null, url: string, depthUrl: st
       disposed = true;
       for (const c of cleanups) c();
     };
-  }, [canvas, url, depthUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canvas, url, depthUrl, flatBelow]); // eslint-disable-line react-hooks/exhaustive-deps
 }
 
 /**
  * A scene picture that moves in 2.5D when depth is available (made once per picture in the browser), and a
  * flat picture otherwise. Off in Settings, or when the device asks for reduced motion, it is always flat.
  */
-export function ParallaxImage({ imageKey, url, alt, className, fit = 'cover', maxHeight = '100%', paused = false }: Props) {
+export function ParallaxImage({ imageKey, url, alt, className, fit = 'cover', maxHeight = '100%', paused = false, flatBelow = 2 }: Props) {
   const enabled = useSettings((s) => s.settings.image.parallax) && !reducedMotion();
   const depth = useDepthMap(imageKey, enabled);
   const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
   const [failed, setFailed] = useState<string | null>(null);
   const [aspect, setAspect] = useState<number | null>(null);
   const live = enabled && !!depth.url && failed !== url;
-  useParallax(live ? canvas : null, url, depth.url, paused, () => setFailed(url), setAspect);
+  useParallax(live ? canvas : null, url, depth.url, paused, flatBelow, () => setFailed(url), setAspect);
 
   const box: CSSProperties | undefined = fit === 'contain' && aspect ? { aspectRatio: String(aspect), width: `min(100%, calc(${maxHeight} * ${aspect}))`, height: 'auto', marginInline: 'auto' } : undefined;
   if (!live) {

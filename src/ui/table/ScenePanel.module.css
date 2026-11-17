@@ -1,6 +1,9 @@
 .scene {
   padding: 0 var(--s-4) var(--s-2);
 }
+.frameWrap {
+  position: relative;
+}
 .frame {
   position: relative;
   display: block;
@@ -78,4 +81,61 @@
   max-height: calc(100vh - 80px);
   object-fit: contain;
   border-radius: var(--r-md);
+}
+
+/* Paging through earlier pictures: small round arrows on the picture's sides, a counter in the corner. */
+.arrow {
+  position: absolute;
+  top: calc(50% - 30px);
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--text);
+  cursor: pointer;
+  opacity: 0.72;
+  transition: opacity 0.15s var(--ease);
+}
+.arrow:hover,
+.arrow:focus-visible {
+  opacity: 1;
+}
+.arrow:disabled {
+  opacity: 0.22;
+  cursor: default;
+}
+.arrowLeft {
+  left: 8px;
+}
+.arrowRight {
+  right: 8px;
+}
+.counter {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  border-radius: var(--r-pill);
+  background: rgba(0, 0, 0, 0.5);
+  color: var(--text-dim);
+  font-family: var(--font-ui);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.counter button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.counterEarlier {
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }

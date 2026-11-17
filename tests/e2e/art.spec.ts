@@ -22,6 +22,7 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
           { text: 'Mags, what do you do?' },
           { text: 'You step onto the causeway.', toolCalls: [{ name: 'scene_change', input: { location: 'causeway' } }, { name: 'request_image', input: { description: 'the fog parts to reveal the drowned spires' } }] },
           { text: 'The fog closes behind you. Mags?' },
+          { text: 'The tide turns. Mags, what now?' },
         ],
       }),
     ),
@@ -53,6 +54,9 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   // A picture in the chat opens full size.
   await chat.getByRole('button', { name: 'Open image: The party, together at last' }).click();
   await expect(page.getByRole('dialog', { name: 'The party, together at last' })).toBeVisible();
+  // Flat in the chat, 2.5D full screen.
+  await expect(page.getByRole('dialog', { name: 'The party, together at last' }).locator('canvas[aria-label="The party, together at last"]')).toBeVisible();
+  await expect(chat.getByRole('button', { name: 'Open image: The party, together at last' }).locator('img')).toBeVisible();
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'The party, together at last' })).toBeHidden();
   await expect(page.getByRole('img', { name: 'Scene: Brinewick Shingle' })).toBeVisible();
@@ -72,12 +76,32 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   // The card shows the portrait with its name plaque composited by the app.
   await page.getByRole('button', { name: /Mags, Rogue/ }).click();
   await expect(page.getByRole('img', { name: 'Mags, Rogue' })).toBeVisible();
+  // The card moves in 2.5D too (its name plaque held still by the shader).
+  await expect(page.locator('canvas[aria-label="Mags, Rogue"]')).toBeVisible();
   await page.getByRole('button', { name: 'Close' }).click();
 
   await page.getByLabel('Your action').fill('Onward.');
   await page.getByRole('button', { name: 'Send' }).click();
+  // A player's avatar beside their message opens the same card as the roster.
+  await chat.getByRole('button', { name: 'Mags. Open card' }).click();
+  await expect(page.getByRole('dialog', { name: 'Mags' })).toBeVisible();
+  await expect(page.getByRole('dialog', { name: 'Mags' }).getByRole('img', { name: 'Mags, Rogue' })).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
   await expect(page.getByRole('img', { name: 'Scene: The Dead Tide Causeway' })).toBeVisible();
   await expect(chat.getByRole('img', { name: 'the fog parts to reveal the drowned spires' })).toBeVisible();
+
+  // Small arrows page back through the pictures shown so far; the next turn returns to the current one.
+  const scene = page.getByRole('region', { name: 'Current scene' });
+  const previous = scene.getByRole('button', { name: 'Previous picture' });
+  await expect(scene.getByRole('button', { name: 'Next picture' })).toBeDisabled();
+  while (await previous.isEnabled()) await previous.click();
+  await expect(scene.getByRole('img', { name: 'Scene: Brinewick Shingle' })).toBeVisible();
+  await expect(scene.getByRole('button', { name: /^Picture 1 of \d+\. Back to the current picture$/ })).toBeVisible();
+  await page.getByLabel('Your action').fill('We wait.');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(chat).toContainText('The tide turns.');
+  await expect(scene.getByRole('img', { name: 'Scene: The Dead Tide Causeway' })).toBeVisible();
+  await expect(scene.getByRole('button', { name: 'Next picture' })).toBeDisabled();
   await expect(page.getByText(/pictures$/)).toBeVisible();
 
   // Every picture went through the helper model's prompt writer, once per subject (the cache prevents repeats).
@@ -91,7 +115,7 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   const row = panel.getByRole('row', { name: /^Pictures/ });
   await expect(row).toContainText(`${game.length} pictures`);
   await expect(row).toContainText(`$${(game.length * 0.01).toFixed(3)}`);
-  await expect(panel.getByRole('row', { name: /^Dungeon Master/ })).toContainText('4 requests');
+  await expect(panel.getByRole('row', { name: /^Dungeon Master/ })).toContainText('5 requests');
   const download = page.waitForEvent('download');
   await panel.getByRole('button', { name: /Download usage log/ }).click();
   expect((await download).suggestedFilename()).toMatch(/^taleforge-usage-the-sunken-crown-.*\.csv$/);

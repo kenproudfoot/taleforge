@@ -102,6 +102,8 @@ test('a passphrase locks the keys until it is entered', async ({ page }) => {
   await page.getByLabel('New passphrase').fill('open sesame');
   await page.getByRole('button', { name: 'Encrypt keys' }).click();
   await expect(page.getByText('Keys are encrypted')).toBeVisible();
+  // The chip shows at once; the encrypted save lands a moment later (slow on CI). Reload only after it.
+  await expect(page.getByText(/Keys are now encrypted/)).toBeVisible();
 
   await page.reload();
   await expect(page.getByText('Your API keys are locked')).toBeVisible();

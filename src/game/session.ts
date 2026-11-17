@@ -29,6 +29,14 @@ export interface SessionImages {
   generated: number;
   /** How many times each place ("scene:<id>") and character ("npc:<id>") has been shown; each new visit gets a new picture. */
   visits?: Record<string, number>;
+  /** Every picture that has been the current one, oldest first, with where the party was: the scene panel's history. */
+  shown?: ShownImage[];
+}
+
+export interface ShownImage {
+  key: string;
+  /** Location id when the picture first became current. */
+  at: string | null;
 }
 
 /** Everything needed to resume a game: saved to IndexedDB after every turn. */
@@ -141,4 +149,24 @@ export function formatClock(ms: number): string {
   const m = Math.floor(total / 60);
   const s = total % 60;
   return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Adds the current picture to the history the first time it is shown (pure). */
+export function recordShown(session: Session): Session {
+  const { current, shown = [] } = session.images;
+  if (!current || shown.some((s) => s.key === current)) return session;
+  return { ...session, images: { ...session.images, shown: [...shown, { key: current, at: session.state.locationId }] } };
+}
+
+/**
+ * The pictures to page through in the scene panel, oldest first, each with the chat caption when it was a
+ * story moment. Older saves without a history fall back to the chat's pictures; the current one is always in.
+ */
+export function sceneGallery(session: Session): Array<ShownImage & { caption?: string }> {
+  const captions = new Map<string, string>();
+  for (const e of session.chat) if (e.kind === 'image') captions.set(e.imageKey, e.caption);
+  const list: ShownImage[] = session.images.shown?.length ? [...session.images.shown] : [...captions.keys()].map((key) => ({ key, at: null }));
+  const current = session.images.current;
+  if (current && !list.some((s) => s.key === current)) list.push({ key: current, at: session.state.locationId });
+  return list.map((s) => (captions.has(s.key) ? { ...s, caption: captions.get(s.key)! } : s));
 }

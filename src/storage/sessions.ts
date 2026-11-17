@@ -32,6 +32,8 @@ export const sessionSchema = z.object({
     current: z.string().nullable(),
     cards: z.record(z.string(), z.string()).default({}),
     generated: z.number().default(0),
+    visits: z.record(z.string(), z.number()).optional(),
+    shown: z.array(z.object({ key: z.string(), at: z.string().nullable() })).optional(),
   }),
   recap: z.string().nullable(),
   voiceCast: z.record(z.string(), z.string()).default({}),
