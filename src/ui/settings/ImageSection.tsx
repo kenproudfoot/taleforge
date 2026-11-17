@@ -159,6 +159,10 @@ export function ImageSection() {
           </div>
         </div>
       </div>
+      <label className={styles.check}>
+        <input type="checkbox" checked={image.parallax} onChange={(e) => set((d) => void (d.parallax = e.target.checked))} />
+        <span>3D scene pictures: the scene slowly tilts to show its depth, and follows your mouse or your device&apos;s tilt (the first one downloads a small depth model, about 30 to 50 MB, once)</span>
+      </label>
       <div aria-live="polite">
         {test.text && <p className={test.state === 'bad' ? styles.bad : styles.ok}>{test.text}</p>}
         {test.url && <img src={test.url} alt="Test picture" style={{ width: 160, borderRadius: 10, marginTop: 8, display: 'block' }} />}

@@ -1,0 +1,21 @@
+.canvas {
+  display: block;
+  touch-action: pan-y;
+}
+/* Fallback when depth is unavailable: a slow pan and zoom, not 3D, but never a still frame. */
+.drift {
+  animation: drift 26s ease-in-out infinite alternate;
+}
+@keyframes drift {
+  from {
+    transform: scale(1.02) translate(-1%, 0);
+  }
+  to {
+    transform: scale(1.09) translate(1.2%, -0.8%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drift {
+    animation: none;
+  }
+}

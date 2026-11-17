@@ -56,6 +56,8 @@ export const settingsSchema = z.object({
       /** GPT Image quality: the biggest lever on picture cost (high is roughly four times medium). */
       quality: z.enum(['low', 'medium', 'high']).default('medium'),
       concurrency: z.number().int().min(1).max(4).default(2),
+      /** Scene pictures move in 2.5D (a depth map made in the browser, once per picture). */
+      parallax: z.boolean().default(true),
       custom: z
         .object({
           url: z.string().default(''),

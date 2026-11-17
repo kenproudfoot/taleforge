@@ -168,14 +168,36 @@ function ReplayButton({ unit, onReplay, entryId }: { unit: SpeechUnit; entryId: 
   );
 }
 
-/** Narration and «Name: line» speech from `text[from, to)`, with replay buttons on every spoken line. */
-function Region({ text, from, to, units, entryId, onReplay }: { text: string; from: number; to: number; units: SpeechUnit[]; entryId: string; onReplay: Props['onReplay'] }) {
+type Range = { start: number; end: number } | null;
+
+/** Does `[start, end)` overlap the line being read aloud? */
+const overlaps = (range: Range, start: number, end: number) => !!range && range.start < end && range.end > start;
+
+/**
+ * Narration and «Name: line» speech from `text[from, to)`, with replay buttons on every spoken line.
+ * `range` is the stretch being read aloud right now: it is highlighted in place, so the layout never changes.
+ */
+function Region({ text, from, to, units, entryId, onReplay, range }: { text: string; from: number; to: number; units: SpeechUnit[]; entryId: string; onReplay: Props['onReplay']; range: Range }) {
   const out: ReactNode[] = [];
   let para: ReactNode[] = [];
   let pos = from;
-  const flushText = (end: number) => {
-    const piece = text.slice(pos, end);
+  const pushText = (piece: string) => {
     if (piece.trim()) para.push(para.length === 0 ? piece.trimStart() : piece);
+  };
+  const flushText = (end: number) => {
+    if (range && overlaps(range, pos, end)) {
+      const a = Math.max(pos, range.start);
+      const b = Math.min(end, range.end);
+      pushText(text.slice(pos, a));
+      para.push(
+        <mark key={`m${a}`} className={styles.speaking}>
+          {text.slice(a, b)}
+        </mark>,
+      );
+      pushText(text.slice(b, end));
+    } else {
+      pushText(text.slice(pos, end));
+    }
     pos = end;
   };
   const closePara = () => {
@@ -190,6 +212,7 @@ function Region({ text, from, to, units, entryId, onReplay }: { text: string; fr
     }
     para = [];
   };
+  const lit = (unit: SpeechUnit, content: ReactNode) => (overlaps(range, unit.start, unit.end) ? <mark className={styles.speaking}>{content}</mark> : content);
   for (const unit of units) {
     if (unit.speaker === null || unit.start < from || unit.end > to) continue;
     flushText(unit.start);
@@ -201,13 +224,13 @@ function Region({ text, from, to, units, entryId, onReplay }: { text: string; fr
             {unit.speaker}
             {onReplay && <ReplayButton unit={unit} entryId={entryId} onReplay={onReplay} />}
           </cite>
-          <span>{unit.text}</span>
+          <span>{lit(unit, unit.text)}</span>
         </blockquote>,
       );
     } else {
       para.push(
         <span key={`i${unit.start}`} className={styles.quote}>
-          {text.slice(unit.start, unit.end)}
+          {lit(unit, text.slice(unit.start, unit.end))}
           {onReplay && <ReplayButton unit={unit} entryId={entryId} onReplay={onReplay} />}
         </span>,
       );
@@ -221,42 +244,18 @@ function Region({ text, from, to, units, entryId, onReplay }: { text: string; fr
 
 function DmText({ entry, speaking, streaming, names, onReplay }: { entry: Extract<ChatEntry, { kind: 'dm' }>; speaking: Props['speaking']; streaming: boolean; names: string[]; onReplay: Props['onReplay'] }) {
   const text = entry.text;
+  // The sentence being read aloud is highlighted inside the same formatted layout as the finished message.
   const range = speaking && speaking.entryId === entry.id ? speaking : null;
   const split = streaming ? -1 : handoffStart(text);
   const handoff = split > 0 ? split : text.length;
-  if (range) {
-    // While a sentence is being read aloud, show the raw text with that sentence highlighted.
-    const raw = (from: number, to: number) => {
-      const a = Math.max(from, Math.min(range.start, to));
-      const b = Math.max(a, Math.min(range.end, to));
-      return (
-        <p className={styles.narration}>
-          {text.slice(from, a).trimStart()}
-          {b > a && <mark className={styles.speaking}>{text.slice(a, b)}</mark>}
-          {text.slice(b, to).trimEnd()}
-        </p>
-      );
-    };
-    return (
-      <>
-        {raw(0, handoff)}
-        {handoff < text.length && (
-          <>
-            <hr className={styles.handoffRule} />
-            {raw(handoff, text.length)}
-          </>
-        )}
-      </>
-    );
-  }
   const units = speechUnits(text, true, names);
   return (
     <>
-      <Region text={text} from={0} to={handoff} units={units} entryId={entry.id} onReplay={onReplay} />
+      <Region text={text} from={0} to={handoff} units={units} entryId={entry.id} onReplay={onReplay} range={range} />
       {handoff < text.length && (
         <div className={styles.handoff}>
           <hr className={styles.handoffRule} />
-          <Region text={text} from={handoff} to={text.length} units={units} entryId={entry.id} onReplay={onReplay} />
+          <Region text={text} from={handoff} to={text.length} units={units} entryId={entry.id} onReplay={onReplay} range={range} />
         </div>
       )}
     </>

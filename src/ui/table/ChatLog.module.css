@@ -306,7 +306,20 @@
   width: 100%;
   margin: 4px 0 2px;
   border: 0;
-  border-top: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--handoff) 55%, transparent);
+}
+/* The question to the player, set apart from the narration: mustard text on a faint mustard panel. */
+.handoff > p,
+.handoff > blockquote {
+  margin: 0;
+  padding: 8px 12px;
+  color: var(--handoff);
+  background: var(--handoff-soft);
+  border-left: 3px solid var(--handoff);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.handoff > blockquote cite {
+  color: var(--handoff);
 }
 .quote {
   font-style: italic;

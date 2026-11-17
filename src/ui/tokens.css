@@ -17,6 +17,9 @@
   --warn: #e8b454;
   --bad: #e5675f;
   --info: #6fb1e8;
+  /* The closing hand-off to a player ("Marisai, what do you do?"): mustard, the same in every campaign theme. */
+  --handoff: #e3b448;
+  --handoff-soft: rgba(227, 180, 72, 0.09);
 
   --font-display: 'Cinzel', 'Trajan Pro', Georgia, serif;
   --font-narration: 'Spectral', Georgia, 'Times New Roman', serif;

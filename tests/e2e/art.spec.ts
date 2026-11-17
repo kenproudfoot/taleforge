@@ -56,6 +56,16 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: 'The party, together at last' })).toBeHidden();
   await expect(page.getByRole('img', { name: 'Scene: Brinewick Shingle' })).toBeVisible();
+  // The scene moves in 2.5D: its depth map (a stand-in gradient in tests) turns it into a WebGL canvas,
+  // in the panel and full screen.
+  await expect(page.locator('canvas[aria-label="Scene: Brinewick Shingle"]')).toBeVisible();
+  await page.getByRole('button', { name: 'Open the picture of Brinewick Shingle full screen' }).click();
+  const full = page.getByRole('dialog', { name: 'Brinewick Shingle' });
+  await expect(full.locator('canvas[aria-label="Scene: Brinewick Shingle"]')).toBeVisible();
+  const box = await full.locator('canvas').boundingBox();
+  expect(box && box.width > 300 && box.height > 100).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect(full).toBeHidden();
   await expect(page.getByRole('button', { name: /Mags, Rogue/ }).locator('img')).toBeVisible();
   await expect(page.getByRole('button', { name: /Elder Maren Holt, Ally/ }).locator('img')).toBeVisible();
 
