@@ -53,11 +53,17 @@ describe('music resolution', () => {
   it('maps genres to families', () => {
     expect([genreFamily('noir-mystery'), genreFamily('Space Opera'), genreFamily('Sword & Sorcery'), genreFamily('western')]).toEqual(['noir', 'space', 'fantasy', 'generic']);
   });
-  it('every bundled campaign maps every mood to a known track', () => {
+  it('every bundled campaign maps every mood to a known track or a music file in its pack', () => {
     const ids = new Set(catalog.tracks.map((t) => t.id));
-    for (const id of ['the-sunken-crown', 'ashes-on-45th-street', 'signal-from-kepler-9']) {
+    for (const id of ['the-sunken-crown', 'ashes-on-45th-street', 'signal-from-kepler-9', 'the-light-at-point-sur']) {
       const pack = parseCampaignPack(readPackFiles(id)).pack!;
-      for (const mood of MOODS) expect(ids.has((pack.manifest.audio[mood] ?? '').replace('bundled:', '')), `${id} ${mood}`).toBe(true);
+      for (const mood of MOODS) {
+        const source = pack.manifest.audio[mood] ?? '';
+        const known = source.startsWith('assets/')
+          ? existsSync(join(process.cwd(), 'public/content/campaigns', id, source))
+          : ids.has(source.replace('bundled:', ''));
+        expect(known, `${id} ${mood}: ${source}`).toBe(true);
+      }
     }
   });
 });

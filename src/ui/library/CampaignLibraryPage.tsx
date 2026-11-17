@@ -5,6 +5,7 @@ import type { Issue } from '@/content/issues';
 import { deleteImportedCampaign, fetchBundledTrackIds, listCampaigns, loadCampaign, saveImportedCampaign } from '@/content/library';
 import type { LibraryEntry } from '@/content/library';
 import type { CampaignPack } from '@/content/pack';
+import { setHushed } from '@/audio/bus';
 import { audioUrl, loadCatalog } from '@/audio/music';
 import { previewSource, previewVolume } from '@/audio/preview';
 import { useSettings } from '@/app/settingsStore';
@@ -332,6 +333,7 @@ function usePreview() {
       c.audio.pause();
       c.audio.removeAttribute('src');
       if (c.revoke) URL.revokeObjectURL(c.revoke);
+      setHushed(false);
     }
     setPlaying(null);
   }, []);
@@ -350,6 +352,8 @@ function usePreview() {
       audio.volume = previewVolume(musicVolume, found.gain);
       audio.onended = stop;
       current.current = { audio, revoke: found.revoke ? found.url : null };
+      // The background music fades out under the preview and comes back when it stops.
+      setHushed(true);
       setPlaying(mood);
       try {
         await audio.play();

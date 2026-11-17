@@ -12,13 +12,13 @@ key_art: assets/key-art.jpg
 theme: { accent: "#c9a227", background: "#0d0f12", display_font: Limelight, bubble: smoke }
 audio:
   title: bundled:owner-soft-brushed-pulse
-  exploration: bundled:noir-streets
-  tension: bundled:noir-tension
-  combat: bundled:noir-chase
-  calm: bundled:calm-hearth
-  mystery: bundled:owner-shadowed-corner
-  triumph: bundled:triumph-banners
-  defeat: bundled:defeat-ashes
+  exploration: assets/music/Midnight-Ledger.m4a
+  tension: assets/music/One-Last-Bullet.m4a
+  combat: assets/music/Rain-on-the-Office-Window.m4a
+  calm: assets/music/Verdict-at-Dawn.m4a
+  mystery: assets/music/The-Unopened-Letter.m4a
+  triumph: assets/music/Rain-on-the-Pavement.m4a
+  defeat: assets/music/The-Unfinished-Waltz.m4a
 goal: { text: "Find out who set the Hartwell fire and recover Evelyn Hartwell.", milestones: 5 }
 opening_location: hartwell-ruins
 acts:

@@ -48,11 +48,28 @@ function ramp(param: AudioParam, value: number, ctx: AudioContext, seconds: numb
 }
 
 let duckers = 0;
+let hushers = 0;
+
+/** The music level the duck gain should sit at: silent under a preview, lowered under a voice, else full. */
+export function duckLevel(): number {
+  return hushers > 0 ? 0 : duckers > 0 ? DUCKED_LEVEL : 1;
+}
+
+function applyDuck(lowering: boolean): void {
+  const b = getAudioBus();
+  if (b) ramp(b.duck.gain, duckLevel(), b.ctx, lowering ? 0.25 : 0.7);
+}
+
 /** Lowers the music while something is speaking. Calls nest: music returns when every speaker has finished. */
 export function setDucked(on: boolean): void {
   duckers = Math.max(0, duckers + (on ? 1 : -1));
-  const b = getAudioBus();
-  if (b) ramp(b.duck.gain, duckers > 0 ? DUCKED_LEVEL : 1, b.ctx, on ? 0.25 : 0.7);
+  applyDuck(on);
+}
+
+/** Fades the music out while another track (a music preview) plays over it. Calls nest like setDucked. */
+export function setHushed(on: boolean): void {
+  hushers = Math.max(0, hushers + (on ? 1 : -1));
+  applyDuck(on);
 }
 
 export function setBusVolume(which: 'music' | 'sfx' | 'voice' | 'master', value: number): void {

@@ -17,6 +17,25 @@ should replace these with music they hold the rights to (see the README, "Replac
 | `music/owner-shadowed-corner.m4a` | Shadowed Corner | bbffaad5-26aa-400d-82c1-0d30715c8669 | 2026-11-15 01:46 |
 | `music/owner-modal-pulse.m4a` | Modal Pulse | 507509e3-c7bc-491d-8e73-f3ac4f13d97b | 2026-11-15 01:43 |
 
+## Campaign music: Ashes on 45th Street
+
+Created by the TaleForge project owner with Google Gemini and supplied for this project; each original MP3
+carried Google's signed C2PA content credentials. They live in the campaign pack at
+`public/content/campaigns/ashes-on-45th-street/assets/music/`, turned down 3.9 dB to sit level with the
+rest of the soundtrack and re-encoded to AAC (128 kbps); the music itself is unchanged. Rights are governed by
+the owner's Google account terms; anyone forking TaleForge should replace these with music they hold the
+rights to. The title screen keeps the bundled owner track `owner-soft-brushed-pulse`.
+
+| File | Title | Mood |
+|---|---|---|
+| `assets/music/Midnight-Ledger.m4a` | Midnight Ledger | exploration |
+| `assets/music/One-Last-Bullet.m4a` | One Last Bullet | tension |
+| `assets/music/Rain-on-the-Office-Window.m4a` | Rain on the Office Window | combat |
+| `assets/music/Verdict-at-Dawn.m4a` | Verdict at Dawn | calm |
+| `assets/music/The-Unopened-Letter.m4a` | The Unopened Letter | mystery |
+| `assets/music/Rain-on-the-Pavement.m4a` | Rain on the Pavement | triumph |
+| `assets/music/The-Unfinished-Waltz.m4a` | The Unfinished Waltz | defeat |
+
 ## Campaign music: The Light at Point Sur
 
 Created by the TaleForge project owner with Google Gemini and supplied for this project; each original MP3
