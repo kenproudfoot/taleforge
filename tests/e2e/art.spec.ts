@@ -94,8 +94,14 @@ test('the Art Director paints portraits, the party, and scenes through a custom 
   const scene = page.getByRole('region', { name: 'Current scene' });
   const previous = scene.getByRole('button', { name: 'Previous picture' });
   await expect(scene.getByRole('button', { name: 'Next picture' })).toBeDisabled();
-  while (await previous.isEnabled()) await previous.click();
-  await expect(scene.getByRole('img', { name: 'Scene: Brinewick Shingle' })).toBeVisible();
+  const seen: string[] = [];
+  while (await previous.isEnabled()) {
+    await previous.click();
+    seen.push((await scene.getByRole('img').first().getAttribute('aria-label')) ?? (await scene.getByRole('img').first().getAttribute('alt')) ?? '');
+  }
+  // Every picture so far, named by place (or by its caption when it was never the scene picture).
+  expect(seen).toContain('Scene: Brinewick Shingle');
+  expect(seen.at(-1)).toBe('Scene: The party, together at last');
   await expect(scene.getByRole('button', { name: /^Picture 1 of \d+\. Back to the current picture$/ })).toBeVisible();
   await page.getByLabel('Your action').fill('We wait.');
   await page.getByRole('button', { name: 'Send' }).click();

@@ -160,13 +160,24 @@ export function recordShown(session: Session): Session {
 
 /**
  * The pictures to page through in the scene panel, oldest first, each with the chat caption when it was a
- * story moment. Older saves without a history fall back to the chat's pictures; the current one is always in.
+ * story moment. Pictures from before the history was kept (older games) come first: the party picture, the
+ * chat's pictures and the picture of every place visited (never places only painted ahead of time). The
+ * current picture is always in.
  */
 export function sceneGallery(session: Session): Array<ShownImage & { caption?: string }> {
+  const { images, state } = session;
   const captions = new Map<string, string>();
   for (const e of session.chat) if (e.kind === 'image') captions.set(e.imageKey, e.caption);
-  const list: ShownImage[] = session.images.shown?.length ? [...session.images.shown] : [...captions.keys()].map((key) => ({ key, at: null }));
-  const current = session.images.current;
-  if (current && !list.some((s) => s.key === current)) list.push({ key: current, at: session.state.locationId });
+  const shown = images.shown ?? [];
+  const list: ShownImage[] = [];
+  const add = (key: string | null | undefined, at: string | null) => {
+    if (key && !list.some((s) => s.key === key) && !shown.some((s) => s.key === key)) list.push({ key, at });
+  };
+  add(images.party, null);
+  for (const key of captions.keys()) add(key, null);
+  for (const visit of Object.keys(images.visits ?? {})) if (visit.startsWith('scene:')) add(images.scenes[visit.slice(6)], visit.slice(6));
+  list.push(...shown);
+  const current = images.current;
+  if (current && !list.some((s) => s.key === current)) list.push({ key: current, at: state.locationId });
   return list.map((s) => (captions.has(s.key) ? { ...s, caption: captions.get(s.key)! } : s));
 }

@@ -31,11 +31,19 @@ describe('scene picture history', () => {
     ]);
   });
 
-  it('falls back to the chat pictures for older saves, and always includes the current picture', () => {
+  it('includes pictures from before the history was kept: party, chat, and places visited (not painted ahead)', () => {
     let s = testSession();
-    s = { ...s, chat: [{ id: 'i1', kind: 'image', imageKey: 'img-party', caption: 'The party' }], images: { ...s.images, current: 'img-scene' } };
-    expect(sceneGallery(s).map((g) => g.key)).toEqual(['img-party', 'img-scene']);
-    expect(sceneGallery({ ...s, chat: [], images: { ...s.images, current: null } })).toEqual([]);
+    s = {
+      ...s,
+      chat: [{ id: 'i1', kind: 'image', imageKey: 'img-moment', caption: 'The spires' }],
+      images: { ...s.images, party: 'img-party', scenes: { harbour: 'img-harbour', causeway: 'img-causeway', cathedral: 'img-ahead' }, visits: { 'scene:harbour': 1, 'scene:causeway': 1, 'npc:maren': 1 }, current: 'img-causeway' },
+    };
+    expect(sceneGallery(s).map((g) => g.key)).toEqual(['img-party', 'img-moment', 'img-harbour', 'img-causeway']);
+    expect(sceneGallery(s).find((g) => g.key === 'img-harbour')?.at).toBe('harbour');
+    // Once a history exists, those older pictures come first, then the history in order, with no repeats.
+    s = show(s, 'img-new', 'cathedral');
+    expect(sceneGallery(s).map((g) => g.key)).toEqual(['img-party', 'img-moment', 'img-harbour', 'img-causeway', 'img-new']);
+    expect(sceneGallery({ ...testSession(), images: { ...testSession().images, current: null } })).toEqual([]);
   });
 
   it('survives saving and loading, along with the visit counts', async () => {

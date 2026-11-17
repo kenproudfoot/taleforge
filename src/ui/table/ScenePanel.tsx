@@ -47,7 +47,8 @@ export function ScenePanel({ session, pack, campaign, keyArtUrl, painting }: Pro
   const key = shown?.key ?? session.images.current;
   const url = useStoredImage(key);
   const earlier = picked >= 0 && picked !== nowIndex;
-  const name = earlier && shown ? placeName(shown.at, session, campaign) : locationName(session.state, campaign);
+  // An earlier picture is named by where it was shown; one from before that was recorded, by its chat caption.
+  const name = earlier && shown ? (shown.at === null && shown.caption ? shown.caption : placeName(shown.at, session, campaign)) : locationName(session.state, campaign);
   const go = (to: number) => {
     const target = gallery[to];
     if (target) setPick(target.key === session.images.current ? null : target.key);
