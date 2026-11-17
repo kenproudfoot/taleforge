@@ -14,6 +14,9 @@ import controls from '@/ui/controls.module.css';
 import { cx } from '@/ui/cx';
 import { UnlockPanel } from '@/ui/settings/DataSection';
 import styles from './HomePage.module.css';
+import artLibrary from './home/library.jpg';
+import artNewGame from './home/new-game.jpg';
+import artSettings from './home/settings.jpg';
 import { useSettings } from './settingsStore';
 
 interface Action {
@@ -21,13 +24,15 @@ interface Action {
   icon: IconName;
   title: string;
   text: string;
+  /** Painted card art (Flux, made for TaleForge). */
+  art: string;
   primary?: boolean;
 }
 
 const ACTIONS: Action[] = [
-  { to: '/new', icon: 'play', title: 'New game', text: 'Pick a campaign, create your characters and begin.', primary: true },
-  { to: '/library', icon: 'book', title: 'Campaign library', text: 'Browse the bundled adventures or import your own campaign pack.' },
-  { to: '/settings', icon: 'settings', title: 'Settings', text: 'API keys, models, voices, pictures, music and backups.' },
+  { to: '/new', icon: 'play', title: 'New game', text: 'Pick a campaign, create your characters and begin.', art: artNewGame, primary: true },
+  { to: '/library', icon: 'book', title: 'Campaign library', text: 'Browse the bundled adventures or import your own campaign pack.', art: artLibrary },
+  { to: '/settings', icon: 'settings', title: 'Settings', text: 'API keys, models, voices, pictures, music and backups.', art: artSettings },
 ];
 
 function when(timestamp: number): string {
@@ -102,9 +107,15 @@ export function HomePage() {
       <nav className={styles.actions} aria-label="Start">
         {ACTIONS.map((a) => (
           <Link key={a.to} to={a.to} className={cx(styles.action, a.primary && styles.actionPrimary)}>
-            <Icon name={a.icon} size={28} className={styles.icon} />
-            <span className={styles.actionTitle}>{a.title}</span>
-            <span className={styles.actionText}>{a.text}</span>
+            <img src={a.art} alt="" className={styles.actionArt} />
+            <span className={styles.actionShade} aria-hidden="true" />
+            <span className={styles.actionLabel}>
+              <span className={styles.actionHead}>
+                <Icon name={a.icon} size={20} className={styles.icon} />
+                <span className={styles.actionTitle}>{a.title}</span>
+              </span>
+              <span className={styles.actionCopy}>{a.text}</span>
+            </span>
           </Link>
         ))}
       </nav>

@@ -8,6 +8,7 @@ players: 1-4
 target_minutes: 45
 content_rating: PG-13
 art_style: "cinematic 3D science fiction, realistic lighting, cold blue and amber palette, frost, volumetric haze, worn industrial spacecraft, vast alien landscapes"
+key_art: assets/key-art.jpg
 theme: { accent: "#5fd4e8", background: "#070b14", display_font: Orbitron, bubble: glass }
 audio:
   title: bundled:owner-soft-brushed-pulse

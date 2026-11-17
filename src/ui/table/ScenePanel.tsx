@@ -22,6 +22,9 @@ interface Props {
   painting?: boolean;
 }
 
+/** How long the caption stays after the picture changes. */
+const CAPTION_SECONDS = 3;
+
 /** The name of a place by id (a campaign location or one the DM improvised). */
 function placeName(id: string | null, session: Session, campaign: EngineCampaign): string {
   if (!id) return locationName(session.state, campaign);
@@ -46,6 +49,13 @@ export function ScenePanel({ session, pack, campaign, keyArtUrl, painting }: Pro
   const shown = gallery[index];
   const key = shown?.key ?? session.images.current;
   const url = useStoredImage(key);
+  // The caption shows for a few seconds after the picture changes, then fades until hovered.
+  const [fresh, setFresh] = useState(true);
+  useEffect(() => {
+    setFresh(true);
+    const t = window.setTimeout(() => setFresh(false), CAPTION_SECONDS * 1000);
+    return () => window.clearTimeout(t);
+  }, [key]);
   const earlier = picked >= 0 && picked !== nowIndex;
   // An earlier picture is named by where it was shown; one from before that was recorded, by its chat caption.
   const name = earlier && shown ? (shown.at === null && shown.caption ? shown.caption : placeName(shown.at, session, campaign)) : locationName(session.state, campaign);
@@ -71,7 +81,7 @@ export function ScenePanel({ session, pack, campaign, keyArtUrl, painting }: Pro
         >
           {url && key ? <ParallaxImage key={url} imageKey={key} url={url} alt={`Scene: ${name}`} className={styles.image} paused={open} /> : <CampaignCover title={pack.manifest.title} genre={pack.manifest.genre} theme={pack.manifest.theme} imageUrl={keyArtUrl} className={styles.image} />}
           {painting && <span className={styles.shimmer} aria-hidden="true" />}
-          <span className={styles.caption}>
+          <span className={cx(styles.caption, !fresh && !painting && styles.captionQuiet)}>
             <span className={styles.place}>{name}</span>
             {painting && <span className={styles.painting}>painting the scene…</span>}
             {url && <Icon name="expand" size={15} />}

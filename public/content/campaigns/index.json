@@ -15,7 +15,7 @@
         "display_font": "Limelight",
         "bubble": "smoke"
       },
-      "keyArt": null
+      "keyArt": "assets/key-art.jpg"
     },
     {
       "id": "signal-from-kepler-9",
@@ -32,7 +32,7 @@
         "display_font": "Orbitron",
         "bubble": "glass"
       },
-      "keyArt": null
+      "keyArt": "assets/key-art.jpg"
     },
     {
       "id": "the-sunken-crown",
@@ -49,7 +49,7 @@
         "display_font": "Cinzel",
         "bubble": "parchment"
       },
-      "keyArt": null
+      "keyArt": "assets/key-art.jpg"
     }
   ]
 }

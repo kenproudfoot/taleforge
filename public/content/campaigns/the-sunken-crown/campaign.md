@@ -8,6 +8,7 @@ players: 1-4
 target_minutes: 45
 content_rating: PG-13
 art_style: "painterly 3D fantasy, realistic lighting, cold sea-greens and tarnished gold, mist, wet stone, lantern glow"
+key_art: assets/key-art.jpg
 theme: { accent: "#d9b45a", background: "#0c1316", display_font: Cinzel, bubble: parchment }
 audio:
   title: bundled:owner-soft-brushed-pulse

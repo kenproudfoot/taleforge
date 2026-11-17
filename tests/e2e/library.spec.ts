@@ -7,7 +7,9 @@ const FILES = ['campaign.md', 'world.md', 'cast.md', 'rules.md', 'secrets.md'];
 const dir = join(process.cwd(), 'public/content/campaigns/the-sunken-crown');
 
 function zip(edit: (name: string, text: string) => string): Buffer {
-  const entries = Object.fromEntries(FILES.map((f) => [`my-pack/${f}`, strToU8(edit(f, readFileSync(join(dir, f), 'utf8')))]));
+  const entries: Record<string, Uint8Array> = Object.fromEntries(FILES.map((f) => [`my-pack/${f}`, strToU8(edit(f, readFileSync(join(dir, f), 'utf8')))]));
+  // The bundled pack ships key art; an imported copy carries it too.
+  entries['my-pack/assets/key-art.jpg'] = new Uint8Array(readFileSync(join(dir, 'assets/key-art.jpg')));
   return Buffer.from(zipSync(entries));
 }
 

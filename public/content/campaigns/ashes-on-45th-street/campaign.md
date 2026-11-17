@@ -8,6 +8,7 @@ players: 1-4
 target_minutes: 45
 content_rating: PG-13
 art_style: "cinematic 3D, realistic lighting, 1930s film-noir palette, rain, neon reflections, deep shadows, smoke"
+key_art: assets/key-art.jpg
 theme: { accent: "#c9a227", background: "#0d0f12", display_font: Limelight, bubble: smoke }
 audio:
   title: bundled:owner-soft-brushed-pulse
